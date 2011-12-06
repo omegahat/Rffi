@@ -1,0 +1,646 @@
+<?xml version="1.0"?>
+<article xmlns:r="http://www.r-project.org"
+         xmlns:xi="http://www.w3.org/2003/XInclude"
+         xmlns:c="http://www.C.org"
+  	 xmlns:omg="http://www.omegahat.org">
+
+<articleinfo>
+
+<title></title>
+
+<author><firstname>Duncan</firstname><surname>Temple Lang</surname>
+  <affiliation><orgname>University of California at Davis</orgname>
+               <orgdiv>Department of Statistics</orgdiv>
+  </affiliation>
+</author>
+</articleinfo>
+
+<section>
+<title></title>
+
+<para>
+The idea behind this package is to allow R programmers to 
+dynamically invoke arbitrary compiled routines without
+having to explicitly write and compile C code to perform
+the invocation.  This may not be of immense value
+as one has to compile the original routines to which you
+are interfacing. Furthermore, a compiled interface will be
+faster than one that examines its inputs at run-time.
+However, the dynamic interface is somewhat interesting.
+</para>
+
+
+<para>
+The package is an interface to libffi.
+There are two main functions of interest to users.
+The first is <r:func>prepCIF</r:func> 
+which is used to create a "template" call to 
+any native routine with a particular signature - 
+both type of inputs and return value.
+Having created this interface object, we can use
+it to make one or more  calls to any routine
+with that signature. We do this with <r:func>callCIF</r:func>.
+
+</para>
+
+<para>
+We specify the type of the return value and
+of each of the parameters in our call to <r:func>prepCIF</r:func>.
+There are objects describing each of the basic types such as
+a double, various types of integers and pointers.
+
+<table>
+<tgroup cols="2">
+<thead>
+<row><entry>R variable</entry><entry>description</entry></row>
+</thead>
+<tbody>
+<row><entry>doubleType</entry><entry>a <c:type>double</c:type> in C</entry></row>
+<row><entry>floatType</entry><entry>a <c:type>float</c:type> in C</entry></row>
+<row><entry>longdoubleType</entry><entry>for platforms that support a <c:type>long double</c:type> type</entry></row>
+<row><entry>pointerType</entry><entry>a generic <c:type>void *</c:type> pointer</entry></row>
+<row><entry>sint16Type</entry><entry>a signed 16-bit/2 byte integer</entry></row>
+<row><entry>sint32Type</entry><entry>a regular signed 32-bit/4-byte integer</entry></row>
+<row><entry>sint64Type</entry><entry>a signed 64-bit integer</entry></row>
+<row><entry>sint8Type</entry><entry>a signed single byte integer</entry></row>
+<row><entry>uint16Type</entry><entry>an unsigned 16-bit integer</entry></row>
+<row><entry>uint32Type</entry><entry>an unsigned 32-bit integer</entry></row>
+<row><entry>uint64Type</entry><entry>an unsigned 64-bit integer</entry></row>
+<row><entry>uint8Type</entry><entry>an unsigned 8-bit integer</entry></row>
+<row><entry>voidType</entry><entry>the empty/void type of specific use when the routine of interest has no return value.</entry></row>
+
+<row><entry>stringType</entry><entry>a type object introduced for this package for
+representing strings, i.e. <c:type>char *</c:type>. This might be expanded in the future
+for different types of strings, i.e. signed and unsigned characters, wide characters, etc.</entry></row>
+</tbody>
+</tgroup>
+</table>
+
+In addition to these primtive types, one can create new types for describing
+C-level <c:type>struct</c:type>s.  See <r:func>structType</r:func>.
+
+</para>
+<para>
+Let's consider a very simple example
+of calling a C routine that takes no arguments
+and returns no value. 
+<c:code><![CDATA[
+#include <stdio.h>
+void
+voidCall()
+{
+  fprintf(stderr, "In voidCall\n");
+}
+]]></c:code>
+This is included in the compiled code loaded in the 
+<r:pkg>Rffi</r:pkg> package.
+We would create a CIF for calling a routine with this signature via
+<r:code>
+void = prepCIF(voidType)
+</r:code>
+We only have to specify the return type.
+We don't have to specify any additional information as there are no
+parameters.
+Note that we don't specify the name of the C routine to call.
+This CIF can be used to call any routine with such  a signature.
+And we can use it for multiple calls to the same or different routines.
+</para>
+
+<para>
+So now we can call the C routine <c:func>voidCall</c:func> via
+<r:func>callCIF</r:func>. We have to specify the CIF and the name of
+the routine. 
+<r:code>
+ callCIF(void, "voidCall")
+</r:code>
+You'll see 
+Again, since there are no inputs to this routine, we don't have to specify
+any.
+</para>
+
+<para>
+Consider a C routine that takes no inputs and returns a real value:
+<c:code>
+double
+rdouble()
+{
+    return(3.1415);
+}
+</c:code>
+The same steps allow us to call this routine, but we need to specify
+the type of the return value differently.
+<r:code>
+cif = prepCIF(doubleType)
+callCIF(cif, "rdouble")
+</r:code>
+This returns the value 3.1415 as an R numeric vector of length 1.
+</para>
+
+</section>
+<section>
+<title>Passing Inputs</title>
+
+<para>
+Let's move on to where we pass values from R to the native routine.
+We'll use a routine (also in Rffi.so/dll) called <c:func>foo</c:func>
+that takes an integer and a double. It returns a double - the sum of the two.
+<c:code><![CDATA[
+#include <stdio.h>
+double
+foo(int x, double y)
+{
+    fprintf(stderr, "In foo %d %lf\n", x, y);
+    return(x + y);
+}
+]]></c:code>
+
+To create the CIF, we need to specify the return type as
+<r:var>doubleType</r:var> and then a list
+of the parameter types. These are 
+<r:var>sint32Type</r:var> and <r:var>doubleType</r:var>.
+Since there are various different types of integers, we have
+to be specific about which one is to be used. We use
+a regular 4-byte/32-bit integer that has a bit for sign
+so that negative values are possible.
+So our call is 
+<r:code>
+cif = CIF(doubleType, list(sint32Type, doubleType))
+</r:code>
+And now we can the routine with
+<r:code>
+callCIF(cif, "foo", -1L, pi)
+</r:code>
+
+</para>
+<para>
+What if we passed a numeric value instead of an integer for the first
+argument? For example, 
+<r:code>
+callCIF(cif, "foo", -1.3, pi)
+</r:code>
+In the current version of the code, the numeric  value is coerced
+to the target type - an integer. As a result, the value  -1 is passed
+to the native routine.
+</para>
+<para>
+What about if we pass a string such as "abc"?
+This is coerced to an integer and results in a <r:na/>.
+ 
+</para>
+
+</section>
+<section>
+<title>Pointers and Arrays</title>
+
+<para>
+Next we turn our attention to passing non-scalar values,
+specifically pointers. We'll deal with structures later.
+Consider a routine which takes a collection of 
+real values via a pointer of type <c:type>double</c:type>.
+It also takes the number of elements as an unsigned integer.
+The routine <c:func>retPointer</c:func> provides such a routine
+in test.c and available in the <r:pkg>Rffi</r:pkg>.
+We can create CIF 
+<r:code>
+cif = CIF(pointerType, list(pointerType, uint32Type))
+</r:code>
+noting that it returns a new array of <c:type>double</c:type>s.
+We can then invoke this with
+<r:code>
+x = c(1, 2, 3, 4)
+y = callCIF(cif, "retPointer", x, length(x))
+</r:code>
+The resulting value in <r:var>y</r:var> is an external pointer
+which contains the address of the returned array newly allocated
+in <c:func>retPointer</c:func>.
+We can pass this to another native routine.
+Alternatively, we can call native code to extract values
+and generally manipulate it.  We might do this with a
+regular hand-built routine that is invokable from R 
+via the <r:func>.Call</r:func> interface as we are dealing
+with SEXP objects throughout, i.e. inputs and outputs.
+One such routine is contained in test.c - 
+<c:func>R_copyDoubleArray</c:func>.
+We call it with the external pointer to the <c:type>double *</c:type>
+and the number of elements, e.g.
+<r:code>
+val = .Call("R_copyDoubleArray", y$value, length(x))
+</r:code>
+
+If we wanted to release the memory associated with the array, we could
+call <c:func>free</c:func>. Again, we could use a manually created routine
+via <r:func>.Call</r:func>. But we can also do it via libffi.
+<r:code>
+free.cif = CIF(voidType, list(pointerType))
+callCIF(free.cif, "free", y$value)
+</r:code>
+</para>
+
+
+<section>
+<title>Pointers as Arrays</title>
+
+<para>
+In <c/>, we can treat a pointer as the beginning of a collection
+of elements. We can then access elements in that collection
+using indeces, e.g. x[1], x[4]. <c/> uses 0-based counting,
+while <r/> uses 1-based counting. We'll take care of adjusting
+between them, allowing the R user to use 1-based counting.
+</para>
+<para>
+The key idea in accessing elements via a <c/> pointer is
+to know the type of the element, i.e. to what type the pointer
+is pointing.  Up to now, we have just used <r:var>pointerType</r:var>.
+At this point, we need more information. We need to pair a
+pointer with its element type.
+We can use the function <r:func>typedPointer</r:func>
+to create such a pair.
+We can use this in our example above with
+<r:code>
+ptr = typedPointer(y$value, doubleType)
+</r:code>
+
+We can then access elements of this array 
+<r:code>
+ptr[[1]]
+<r:output><![CDATA[
+[1] 2
+]]></r:output>
+</r:code>
+<r:code>
+ptr[[3]]
+<r:output><![CDATA[
+[1] 6
+]]></r:output>
+</r:code>
+</para>
+<para>
+We can also do arithmetic on the pointer to index the
+offset. <r:expr>ptr + 3</r:expr>
+results in a new <r:class>TypedPointer</r:class>
+which points to the third element of the collection
+starting at <r:var>ptr</r:var>.
+We can then use this to access elements, e.g.
+<r:code>
+ v = ptr + 3
+ v[[1]]
+</r:code>
+
+
+</para>
+</section>
+
+
+<section>
+<title>Array Types</title>
+<para>
+Accessing an array is much the same as accessing a pointer
+to a collection of elements.
+We need to know the type of the elements in the array
+and the number of elements.
+</para>
+</section>
+
+</section>
+
+
+
+<section>
+<title>Structures</title>
+
+<para>
+libffi also allows us to work with structures.
+Consider a simple structure defined as 
+<c:code>
+typedef struct {
+    short s;
+    int i;
+    double d;
+    char *string;
+} MyStruct;
+</c:code>
+Next, consider a routine that returns an instance of this structure.
+<c:code>
+char *MyString = "a string";
+MyStruct
+getStruct()
+{
+    MyStruct c = {-1, 11, 99.2};
+    c.string = MyString;
+    return(c);
+}
+</c:code>
+</para>
+<para>
+How can we call this from R and get the structure back?
+We start by defining a new type to describe this structure.
+We use <r:func>structType</r:func> for this.
+We give a list of the types of the elements within the structure.
+<r:code>
+myStruct.type = structType(list(s = sint16Type, i = sint32Type, d = doubleType, str = stringType))
+</r:code>
+Note that the <c:type>short</c:type> corresponds to the sint16 type.
+</para>
+<para>
+We can optionally provide names. It is a good idea if we know them
+as we  use the same names as in the C code to simplify interaction.
+At present we don't use the names, but we may in the future.
+
+</para>
+<para>
+Now that we have this type information, we can use it as we did
+the regular built-in types, e.g. doubleType.
+So we create our CIF to call the routine <c:func>getStruct</c:func>:
+<r:code>
+cif = CIF(myStruct.type)
+</r:code>
+And now we can call this
+<r:code>
+callCIF(cif, "getStruct")
+</r:code>
+The result is an R list with 4 elements corresponding to the
+elements of the C structure.
+</para>
+
+<para>
+Now let's explore passing an R object to a routine that expects a structure.
+We can use the following routine
+<c:code>
+void
+doStruct(MyStruct s)
+{
+    fprintf(stderr, "doStruct: s = %d, i = %d, d = %lf, string = %s\n", 
+                      (int) s.s, s.i, s.d, s.string);
+}
+</c:code>
+</para>
+<para>
+We create the CIF for this routine
+<r:code>
+cif = CIF(voidType, list(myStruct.type))
+</r:code>
+Now we can calls this as
+<r:code>
+callCIF(cif, "doStruct", list(-1L, 1L, 3.1415, "R string"))
+</r:code>
+</para>
+
+
+<para>
+Let's deal with pointers to structs.
+<r:code>
+library(Rffi)
+myStruct.type = structType(list(s = sint16Type, i = sint32Type, d = doubleType, str = stringType))
+cif = CIF(pointerType)
+ref = callCIF(cif, "getStructP")
+</r:code>
+Now we want to access the individual elements.
+Let's get the second element - i:
+<r:code>
+getStructField(ref, 2L, myStruct.type)
+getStructField(ref, "i", myStruct.type) # the same as using 2L
+</r:code>
+
+And we can loop over the elements and extract each individually.
+</para>
+<para>
+
+To convert the entire reference to an R object, we can use
+<r:code>
+getStructValue(ref, myStruct.type)
+</r:code>
+This is faster than accessing each element from R as above.
+</para>
+
+
+<para>
+Rather than using <r:func>getStructField</r:func>
+and having to specify the type description for the particular type, 
+we might want to use the more convenient <r:op>$</r:op>
+operator. For example, 
+
+<r:code eval="false">
+ref$i
+</r:code>
+is easier than
+
+<r:code>
+getStructField(ref, "i", myStruct.type)
+</r:code>
+
+To do this, we can define a new class for our reference
+to the particular data type:
+
+<r:code>
+setClass("RCReference", list(ref = "externalptr"))
+setClass("MyStructRef", contains = "RCReference")
+</r:code>
+
+Next, we can define a  method for <r:op>$</r:op>:
+
+<r:function><![CDATA[
+setMethod("$", "MyStructRef",
+            function(x, name) {
+               myStruct.type = structType(list(s = sint16Type, i = sint32Type, d = doubleType, str = stringType))
+               getStructField(x@ref, name, myStruct.type)
+            })
+]]></r:function>
+
+Now, we can create an instance of this class and use the 
+<r:op>$</r:op> notation:
+
+<r:code>
+tmp = new("MyStructRef", ref = ref)
+print(tmp$i)
+print(tmp$d)
+</r:code>
+
+We can of course create similar methods for $&lt; and [[ and [[&lt;.
+</para>
+<para>
+If we use <omg:pkg>RGCCTranslationUnit</omg:pkg> or <omg:pkg>RCIndex</omg:pkg>, 
+we can obtain information about data structures and their fields programmatically
+and then automate the generation of these methods.
+
+
+</para>
+
+</section>
+<section>
+<title>Variable number of arguments</title>
+
+<para>
+A C routine can take a variable number of arguments
+by having ... as the final parameter.
+A good example of this is the family of printf functions.
+<c:routine>printf</c:routine> is the simplest example to work with.
+We pass a string that describes the string to print
+which also contains markup for how to interpret and format the values
+of the remaining arguments into the generated content.
+In C we would call this as in the following examples:
+<c:code>
+printf("A double %lf, and an integer %d\n", 3.1415, 10);
+printf("A string '%s', and a double with %.5lf, and an integer %d\n", 
+         "my string", 3.14159265, 10L);
+</c:code>
+The problem with a variable number of arguments is that we cannot describe
+the call interface for the routine just once. Each call requires
+its own call interface definition that is based on the actual call.
+In the first call to <c:routine>printf</c:routine>, we could use
+
+<r:code>
+cif = CIF(sint32Type, list(stringType, doubleType, sint32Type))
+callCIF(cif, "printf", "A double %lf and an integer %d", 3.1415, 10L)
+</r:code>
+The first argument is always the format string. In the actual call,
+there are 2 format markups - %lf and %d - and there are 2 additional arguments.
+We know these correspond to a double and an integer.
+Hence we can define our CIF. Then we can invoke it.
+(The integer result is the number of characters in the generated content.)
+</para>
+<para>
+For our second example, the signature is different. We have 3 format markups
+in our formatting string and these correspond to a string, a double and an integer.
+So our CIF is
+<r:code>
+cif = CIF(sint32Type, list(stringType, stringType, doubleType, sint32Type))
+</r:code>
+and we can call it as 
+<r:code>
+callCIF(cif, "printf", "A string '%s', and a double with %.5lf, and an integer %d\n",
+               "my string", 3.14159265, 10L)
+</r:code>
+
+</para>
+<para>
+The family of 'exec' routines on UNIX (i.e. execl, execle, execlp)
+are examples of a routines accepting a variable number of arguments.
+All the arguments are strings, and the end of the arguments is identified
+by a NULL string. The routine <c:routine>call_varargs_null</c:routine>
+emulates this interface (without replacing the current process!).
+We might call it with the name of an executable (R) and then 4 additional arguments,
+the last being <r:null/>.
+For this, we need a CIF that expects 5 strings:
+<r:code>
+cif = CIF(voidType, replicate(5, stringType))
+</r:code>
+Then we can invoke the routine as
+<r:code>
+callCIF(cif, "call_varargs_null", "R", "--no-restore", "--slave", "foo.R", NULL)
+</r:code>
+To call the routine with no additional parameters, but just the name of the executable,
+we have to create a new CIF and then use that in the call:
+
+<r:code>
+cif = CIF(voidType, replicate(2, stringType))
+callCIF(cif, "call_varargs_null", "R", NULL)
+</r:code>
+
+
+</para>
+<para>
+So the simple problem is that a single CIF won't work for a variable argument
+function. Instead, we need to generate a CIF tailored to each call.
+In the case of printf, we can inspect the format string and find
+the markup elements to determine the number and expected type of the 
+additional arguments.
+This is non-trivial, but it does allow us to determine each call
+and coerce the arguments to the correct types.
+For other routines that accept a variable number of arguments, we have 
+to determine how to find the expected number and types of parameters.
+In some cases, this will amount to using the number and type of
+arguments passed in the call from R. This has the potential to 
+get the types wrong. But it may be the best we can do.
+
+</para>
+<para>
+When interfacing to routines with a variable number of arguments,
+it is a good idea to write an R function that dynamically creates
+a new CIF for each call.
+For our call_varargs_null routine, this function might be defined as
+
+<r:function><![CDATA[
+varargsNULL =
+function(filename, ...)
+{
+    tmp = c(filename, list(...))
+    args = vector("list", length(tmp) + 1)
+    args[seq_along(tmp)] = tmp
+    cif = CIF(voidType, replicate(length(args), stringType))
+    callCIF(cif, "call_varargs_null", .args = args) 
+}
+]]></r:function>
+Then we can call this as
+<r:code>
+varargsNULL("R", "a", "b", "c")
+</r:code>
+The  first 3 lines of the function just arrange
+the arguments into a list with a NULL value to terminate
+the list for the C code.
+</para>
+<para>
+An implementation for an interface to printf
+might be as simple as determining the
+number of arguments to the R function
+and computing their type
+
+<r:function><![CDATA[
+printf = function(fmt, ...) 
+{
+  args = c(as.character(fmt), list(...))
+  cif = CIF(sint32Type, lapply(args, getRFFIType))
+  invisible(callCIF(cif, "printf", .args = args))
+}
+]]></r:function>
+Now we need to define a function 
+<r:func>getRFFIType</r:func> that  maps the name of an R data type
+to a corresponding FFI type.
+A simple incomplete version is as follows:
+<r:function><![CDATA[
+getRFFIType = 
+function(x, type = class(x))
+{
+   switch(type,
+           numeric = doubleType,
+           integer = sint32Type,
+           character = stringType)
+}
+]]></r:function>
+We should look at the length of the R vectors to determine
+if we need to use an array or a scalar.
+
+<r:code>
+printf("%lf, %d, %s\n", pi, 10L, "a string")
+</r:code>
+</para>
+<para>
+This approach cannot handle formats that do not correspond
+to non-R data types, e.g. float, unsigned integers, longs.
+To support these, we should process the fmt string.
+But we will leave that as a separate tutorial.
+</para>
+
+
+</section>
+
+
+<section>
+<title>Future Possibilities &amp; Directions</title>
+
+<para>
+At present, we have not added support  for
+specifying the type of the pointer, e.g. a pointer to a double.
+This is entirely feasible and would be valuable as it provides
+a great deal more information.  This can then be used to comprehend
+the contents of the values with more specificity.
+</para>
+
+
+<para>
+Information about routines can be obtained via <r:pkg>RGCCTranslationUnit</r:pkg>.
+This can be used within the same R session to construct CIF objects for different 
+routines and data structures.
+</para>
+
+</section>
+</article>

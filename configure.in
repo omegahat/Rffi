@@ -1,0 +1,46 @@
+AC_INIT(src/ffi.c)
+
+AC_PATH_PROG(PKG_CONFIG, pkg-config)
+
+if test -z "$USE_LOCAL" && test -z "$PKG_CONFIG" ; then
+  echo "Cannot find the pkg-config in your path. Add the relevant directory to your path and rerun the installation of the package"
+  USE_LOCAL=1
+  # exit 1
+fi
+
+if test -z "$USE_LOCAL" && test -n "$PKG_CONFIG" ; then
+ $PKG_CONFIG --exists libffi
+ if test  "$?" -gt 0 ; then
+     echo "Cannot find libffi via pkg-config. Check if libffi is installed."
+     echo "If it is, make certain the environment variable PKG_CONFIG_PATH is set to search in the relevalt directories for libffi.pc" 
+     USE_LOCAL=1
+  else
+     PKG_CPPFLAGS=`$PKG_CONFIG --cflags libffi`
+     PKG_LIBS=`$PKG_CONFIG --libs libffi`
+  fi
+fi
+
+if test -n "$USE_LOCAL" ; then
+     echo "Defaulting to version of libffi included with Rffi"
+     (cd libffi-3.0.9 ; ./configure --with-pic --enable-static; make)
+     if test "$?" != "0" ; then 
+         echo "Failed to build local version of libffi. Look into this"
+         exit 1
+     fi
+     if ! test -d "${R_PACKAGE_DIR}/libs"; then 
+        mkdir "${R_PACKAGE_DIR}/libs"
+     fi
+     cp libffi-3.0.9/.libs/libffi.so* "${R_PACKAGE_DIR}/libs"
+  ls "${R_PACKAGE_DIR}/libs"
+     PKG_CPPFLAGS=-I../libffi-3.0.9/include
+     PKG_LIBS="-L../libffi-3.0.9/.libs ../libffi-3.0.9/.libs/libffi.a"
+fi
+
+
+AC_SUBST(PKG_CPPFLAGS)
+AC_SUBST(PKG_LIBS)
+
+AC_OUTPUT(src/Makevars)
+
+echo "compiler flags: $PKG_CPPFLAGS"
+echo "linker lags: $PKG_LIBS"

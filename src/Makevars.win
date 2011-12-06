@@ -1,0 +1,3 @@
+include MVars
+PKG_CPPFLAGS=-I$(FFI_DIR)/include
+PKG_LIBS=-L$(FFI_DIR)/.libs -lffi -lm 

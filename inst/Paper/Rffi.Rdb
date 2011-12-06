@@ -1,0 +1,664 @@
+<?xml version="1.0"?>
+<article xmlns:r="http://www.r-project.org"
+         xmlns:xi="http://www.w3.org/2003/XInclude"
+ 	 xmlns:omg="http://www.omegahat.org"
+	 xmlns:c="http://www.C.org"
+	 xmlns:sh="http://www.shell.org">
+
+<articleinfo>
+
+<title>A Dynamic Mechanism for Invoking C routines from R</title>
+<subtitle>The <omg:pkg>Rffi</omg:pkg> package</subtitle>
+<!-- mention RGCCTranslationUnit in the subtitle ? -->
+
+<author><firstname>Duncan</firstname><surname>Temple Lang</surname>
+  <affiliation><orgname>University of California at Davis</orgname>
+               <orgdiv>Department of Statistics</orgdiv>
+  </affiliation>
+</author>
+
+<abstract>
+<para>
+We describe an approach to invoking arbitrary C routines from R.  This
+is an alternative mechanism from using the .C or .Call interfaces and
+typically writing wrapper/intermediate routines.  This approach
+involves dynamically describing the signature of the routine - the
+types of its inputs and outputs - We then use this description without
+any new supporting C code to invoke the existing routine.  This
+approach can handle scalar data types, pointers and complex
+structures, e.g. <c:keyword>structs</c:keyword>.  This R package is
+based on the general C library <dso>libffi</dso>.  We also illustrate
+a mechanism for automating this dynamic interface by programatically
+reading the existing C code and generating the signatures and data
+structures descriptions.
+<!--  We also suggest an approach to making R more efficient using compiled code. -->
+</para>
+
+</abstract>
+</articleinfo>
+
+<section>
+<title>Reducing the Complexity of Calling C Routines from <r/></title>
+
+<para>
+High-level interpreted languages such as R, MATLAB and Python, typically provide
+a mechanism to invoke compiled, native code.
+One can pass values from those languages across the interface
+to C/C++ and FORTRAN routines. The values are marshaled to the corresponding
+representation in C/C++ or FORTRAN and control is passed
+to the native routine. The results are then marshaled back to an R representation.
+In R, this foreign function interface (FFI) is available via the
+<r:func>.C</r:func>, <r:func>.Call</r:func>, <r:func>.FORTRAN</r:func>
+and <r:func>.External</r:func> functions.
+The typical sequence of steps to interfacing to a routine
+is 
+<ol>
+<li>identify the routine and its <defn>signature</defn>, that is the
+types of its input parameters and its return type</li>
+<li>determine whether to invoke the routine via the
+<r:func>.C</r:func> or <r:func>.Call</r:func> interface</li>
+<li>write a wrapper routine that conforms to the specific types
+allowed by the chosen interface (.C or .Call) and acts as an
+intermediary between R and the target C routine</li>
+<li>compile the new wrapper routine, and link as a shared library with
+the compiled target routine</li>
+<li>dynamically load the DSO containing the wrapper routine</li>
+<li>invoke the routine, coercing the R values to the relevant R data
+types to conform with the expected types of the wrapper routine</li>
+<li>debug using a native debugger such as gdb</li>
+</ol>
+
+This is often a time consuming, and hence error prone, task and
+somewhat challenging for those less familiar with writing this type of
+code. One is working in two languages simultaneously and good design
+decisions are not initially obvious.
+At the very least, the development-compile-test cycle is
+less productive than working directly in a high-level language.
+We would like to be able to use R as a direct glue to be able
+to invoke native routines transparently without and steps needed in between.
+
+</para>
+<para>
+In this paper, we present an alternative mechanism for invoking native
+C routines from within R.  It removes the need to determine the
+appropriate R interface (.C or .Call), write a wrapper
+routine in C, compile and link and load that compiled wrapper routine, i.e.
+we removes steps 2 3, 4, and 5.  
+Furthermore, because the user doesn't have to write C
+code, there is no new native code to debug (step 7).  So we have
+reduced many of the steps.  We have also removed the need for the user
+to have tools such as a compiler installed, especially useful
+on Windows and OS X.
+</para>
+
+<para>
+The key to the mechanism we describe here is the 
+widely used, third-party, general C library <dso>libffi</dso>.  This is a
+compiled library that provides data structures and routines via the C
+language which enable us to invoke routines by simply describing the
+types of the inputs and output.  libffi takes care of the details in invoking
+the routine and marshaling the raw inputs to and from the routine.
+It does this in a portable manner across different operating systems,
+allowing us to have a single piece of code for R that works on all
+systems.  The <omg:pkg>Rffi</omg:pkg> package provides an interface to
+libffi and supporting functionality to convert between R and C data
+types in a reasonably general manner.
+
+</para>
+
+
+<para>
+This libffi-based mechanism for interfacing to native routines and
+data structure is simpler in many ways than the regular
+<r:func>.C</r:func> or <r:func>.Call</r:func> interfaces.
+Importantly, it allows us to invoke arbitrary routines directly
+without having to write a wrapper routine.  However, it does require
+understanding a new model.  Furthermore, the descriptions must be
+available and instantiated at run-time rather than when the interface
+code is developed.  This potentially makes the mechanism slightly
+slower than the <r:func>.C</r:func> or <r:func>.Call</r:func>
+interfaces.  This is insignificant in practice and and so
+<omg:pkg>Rffi</omg:pkg> potentially offers benefits in both
+flexibility and simplicity. <note><para>Measure</para></note>
+The <omg:pkg>Rffi</omg:pkg> package is an alternative to the
+<r:func>.C</r:func>/<r:func>.Call</r:func>
+interface, <r:pkg>Rcpp</r:pkg> and generally programming in C/C++.
+This allows us to write code entirely in <r/> and avoid 
+the development-compile-test cycle.  This helps us exploit the
+benefits of high-level languages which have proven productive and successful.
+</para>
+
+
+<para>
+The paper is divided into four sections.  First we describe the Rffi
+package and how we can manually create descriptions of C-level
+routines and data structures and use these descriptions to invoke
+these routines from R without any compilation of code (after the Rffi
+package is installed).  In the second part of the paper, we describe
+how we can use a tool such as <r:pkg>RCIndex</r:pkg> or <r:pkg>RGCCTranslationUnit</r:pkg> to
+programmatically generate the routine and data structure descriptions
+by automating the reading of the C code.  In the third part of the
+paper, we show how we can pass function pointers in C as arguments in
+calls from R and also how we can use R functions as implementations of
+(This part I might not bother to do.)  We end the paper with a brief
+discussion about different enhancements that others might want to
+pursue.
+</para>
+
+
+<para><fix/>
+Need for support routines at run-time, e.g. to convert arrays in C to
+R vectors when the length of the array is not known when R is
+converting the result in Rffi, but just sees a pointer.
+</para>
+
+</section>
+
+<section>
+<title>The Basics of <omg:pkg>Rffi</omg:pkg></title>
+
+<para>
+In this section of the paper we present the basic facilities provided
+by the <omg:pkg>Rffi</omg:pkg> package for directly and dynamically
+interfacing to existing compiled routines.  This approach allows us to
+describe the details of a routine and the layout or definition of
+complex data structures within R. We then use these generic
+descriptions to invoke specific functions corresponding to that
+interface or that particular definition.  The essential ideas are that
+we create a description of a routine to specify the different
+parameter and return types of the routine.  This then allows us to
+invoke that native routine from R, passing R objects as the arguments
+to the routine and obtaining both the returned value and any mutable
+inputs that might have been changed.  The types of the inputs and
+outputs of a routine can be simple primitive C-level data types such
+as int, double, short, long, char * (for character strings) and so on.
+We can also define complex data structures (structs) by defining the
+collection of field names and types.  The <omg:pkg>Rffi</omg:pkg>
+package also handles marshaling such struct types to and from R.  In
+this section we illustrate how to invoke different native routines
+from R.
+
+</para>
+
+
+<para>
+We start with a very simple sample routine that passes an integer
+value to a C routine and returns an integer.  The routine
+<c:routine>intCall</c:routine> in the <omg:pkg>Rffi</omg:pkg> package
+provides an example.  In order to be able to invoke such a routine, we
+need to describe a generic routine with this signature - inputs are a single
+integer and outputs are a double.  A signature
+is the both the collection of input types - the parameters - and the
+return type.  We create a call interface object - a CIF - to describe the
+class of routines with the same signature.
+The R function <r:func>CIF</r:func> allows us to define such an interface
+that we can use for any C routine with this particular signature.
+For our routine that accepts an integer and returns a
+C <r:keyword>double</r:keyword> we create the CIF with the R code
+
+<r:code>
+cif = CIF(doubleType, list(sint32Type))
+</r:code>
+The first argument is the return type.
+If the routine has input parameters, 
+we specify their types via a list.
+The list can have names to give symbolic names to the 
+parameters, but these are not used at present.
+There are 15 built-in data type identifiers 
+available as R variables in the <omg:pkg>Rffi</omg:pkg>
+package.
+
+These are  described in table <xref/>
+<table>
+<title>Standard data type identifiers</title>
+<tgroup cols='2'>
+<thead>
+<row><entry>R variable</entry><entry>C data type</entry></row>
+</thead>
+<tbody>
+<row><entry><r:var>doubleType</r:var></entry><entry>double</entry></row>
+<row><entry><r:var>floatType</r:var></entry><entry>float</entry></row>
+<row><entry><r:var>longdoubleType</r:var></entry><entry>long double</entry></row>
+<row><entry><r:var>pointerType</r:var></entry><entry>pointer to any type of object/value</entry></row>
+<row><entry><r:var>sint16Type</r:var></entry><entry>signed 16-bit integer</entry></row>
+<row><entry><r:var>sint32Type</r:var></entry><entry>signed 32-bit integer, corresponding to int</entry></row>
+<row><entry><r:var>sint64Type</r:var></entry><entry>signed 64-bit integer</entry></row>
+<row><entry><r:var>sint8Type</r:var></entry><entry>signed 8-bit integer</entry></row>
+<row><entry><r:var>stringType</r:var></entry><entry>a char *, a pointer to a string. This is introduced in R to identify strings rather than generic pointers.</entry></row>
+<row><entry><r:var>structType</r:var></entry><entry>a struct description containing information about the
+       types of the fields</entry></row>
+<row><entry><r:var>uint16Type</r:var></entry><entry>unsigned 16-bit integer</entry></row>
+<row><entry><r:var>uint32Type</r:var></entry><entry>unsigned 32-bit integer</entry></row>
+<row><entry><r:var>uint64Type</r:var></entry><entry>unsigned 64-bit integer</entry></row>
+<row><entry><r:var>uint8Type</r:var></entry><entry>unsigned 8-bit integer</entry></row>
+<row><entry><r:var>voidType</r:var></entry><entry>the void type</entry></row>
+</tbody>
+</tgroup>
+</table>
+signed integers with n bits can represent integer values
+between (-2)<sup>n-1</sup> and (2)<sup>n-1</sup> inclusive.
+Unsigned integers can take values 
+This collection of R variables allows us to describe almost any type we need to
+identify in C<footnote><para>Bit-fields are not feasible using these.</para></footnote>.
+</para>
+
+<para>
+What happens to data types R doesn't have?
+When converting from a C data type to R, we map the value to 
+the type in R that is guaranteed to fit the value.
+For an unsigned 32- or 64- bit integer, we use a numeric vector
+as this is guaranteed not to loose information.
+An unsigned 16-bit integer however can fit into a regular
+integer vector in R without loss of information and so we would
+return an integer vector of length 1 in R.
+R does not have an explicit, separate representation for a float.
+Therefore, we convert a C-level float to an R numeric vector of length 1.
+<r:var>pointerType</r:var> identifies a generic pointer, but not necessarily
+the type of object to which it points. It can be used
+to identify an array or a regular pointer as it is the type for
+a memory address.
+<r:var>stringType</r:var> is a special pointer because of its common usage.
+This identifies a pointer to a sequence of char values.  There is no information
+about character encoding.
+<r:var>voidType</r:var> is used to identify the void type
+<r:var>structType</r:var>  is the one type that doesn't simply identify
+a scalar type. 
+Instead, it represents a struct type that is an aggregation of one or more
+fields. It is similar to an S3 or S4 class in R, and requires information
+about the types of the individual fields.
+We will see an example of using the <r:func>structType</r:func> function
+to create a description of a struct data type.
+
+</para>
+
+
+<para>
+We now return to our example of invoking <c:routine>intCall</c:routine>.
+We have created the call interface - CIF above.
+We can now use that interface description to invoke the routine
+via the function <r:func>callCIF</r:func>.
+This takes the CIF object, the name of the routine or a pointer to the
+routine, and then the arguments to pass to the routine.
+We can do this with 
+
+<r:code>
+callCIF(cif, "intCall", 4L)
+</r:code>
+This returns a regular R numeric vector with a single element -
+5.3863.
+Note that we passed the argument as an explicit integer.
+If we had passed a numeric value, e.g., 
+<r:code>
+callCIF(cif, "intCall", 4.0)
+</r:code>
+the call would work correctly and the result would be the same.
+Since we know the target type, the R  and marshaling code
+underlying the <r:func>callCIF</r:func> function take care
+of handling simple conversions.
+We can even pass the number as a string
+<r:code>
+callCIF(cif, "intCall", "4")
+</r:code>
+and <r:func>callCIF</r:func> will take care of the details.
+
+<note><para>Mention <r:na/>s here. We don't deal with them
+because it is something the caller should figure out with respect
+to the C routine being called and its policies and handling of <r:na/>s.
+Calling intCall with a non-number, e.g.
+<r:code>
+callCIF(cif, "intCall", "abc")
+</r:code>
+results in a NaN as the NA value is passed across.
+</para></note>
+</para>
+
+
+<para>
+The <c:routine>intCall</c:routine> routine was already loaded
+as it is an example routine that is part of the <omg:pkg>Rffi</omg:pkg>
+package's DSO.  <r:func>getNativeSymbolInfo</r:func> was able to 
+get the pointer to or address of the routine from its name.
+If the routine is in a different DSO, we have to load that
+having compiled it appropriately.
+As an example, let's assume we have installed the libsndfile
+library for working with various audio formats.
+<r:code>
+dyn.load("/usr/local/lib/libsndfile.dylib")
+callCIF(CIF(stringType), "sf_version_string")
+</r:code>
+
+</para>
+
+
+<para>
+Consider a routine that takes a string and returns a string.
+The C routine <c:routine>getenv</c:routine> is an example
+that allows us to query the value of an environment variable.
+Of course, we could use <r:func>Sys.getenv</r:func> that is built-in to R, but 
+we are using this as an example.
+We first ensure the <c:func>getenv</c:func> symbol is available
+by loading the C library. (This may not be necessary on some operating systems.)
+<r:code>
+dyn.load("/usr/lib/libc.dylib")
+ge = getNativeSymbolInfo("getenv")$address
+</r:code>
+Ne
+<r:code>
+library(Rffi)
+cif = CIF(stringType, list(stringType))
+callCIF(cif, ge, "R_HOME")
+</r:code>
+</para>
+
+
+
+
+<para>
+Three arguments
+
+</para>
+
+
+<para>
+Struct return
+</para>
+
+
+<para>
+Struct as an argument. Filling in a struct.
+</para>
+
+
+<para>
+Pointer argument
+
+</para>
+<para>
+Pointer return value
+</para>
+
+<para>
+Arrays
+</para>
+
+
+<section>
+<title>Accessing Global Variables</title>
+<para>
+The <omg:pkg>Rffi</omg:pkg> package also allows us to get the value of
+an accessible native variable using <r:func>getNativeValue</r:func>.
+We use <r:func>getNativeSymbolInfo</r:func> to obtain the address of the
+symbol and we provide a description of the symbol's type using
+the libffi data type identifiers. We pass both of these to
+<r:func>getNativeValue</r:func> and the current value of the variable is
+converted to an R data type using the same rules as for converting
+the return type of a routine to an R object.
+</para>
+<para>
+Let's look at an example.
+We'll suppose we have the GNU Scientific Library (libgsl) installed and we want to find
+out the version of that library.
+We could load the libgsl DSO and then access the variable
+<r:code>
+dyn.load("/usr/local/lib/libgsl.dylib")
+getNativeValue(getNativeSymbolInfo("gsl_version")$address, stringType)
+</r:code>
+(The location and name of the libgsl DSO will be different on different machines.
+We can use <r:code>.Platform$dynlib.ext</r:code> to get the typical extension
+for a  DSO on the current platform.)
+</para>
+</section>
+
+</section>
+
+<section>
+<title>Programmatically Obtaining &amp; Using Interface Descriptions</title>
+
+<para>
+
+</para>
+
+</section>
+
+<section>
+<title>Using Function Pointers</title>
+
+<para>
+Consider numerical optimization.
+Suppose we have C code that takes
+a starting value/vector of the parameters
+and a function that is to be optimized
+and its derivative/gradient.
+The C routine takes care of the internal details
+of the optimization algorithm such as
+step halving, etc.
+As it tries to find the optimal value of the parameters,
+it invokes the function and gradient.
+We'll ignore the gradient for the moment.
+The C routine we want to invoke is declared as
+<c:code>
+int
+optimize(double start, double (*fun)(double val, void *userData), void *userData);
+</c:code>
+
+We can create a CIF for this routine with
+
+<r:code>
+cif = CIF(doubleType, list(doubleType, pointerType, pointerType), rep(FALSE, 3))
+</r:code>
+Now we need to provide the routine that gives the value of the function
+to be optimized.
+
+If we have loaded the DSO with the routine that we want to pass to 
+<c:routine>optimize</c:routine>,
+we can  access it with <r:func>getNativeSymbolInfo</r:func>,
+e.g.
+
+<r:code>
+myFunPtr = getNativeSymbolInfo("myFun")$address
+</r:code>
+This is an <r:class>externalptr</r:class> object that contains
+the memory address of the routine. It is a pointer to a
+C routine.
+
+We can pass this to <c:routine>optimize</c:routine> now using 
+<r:code>
+opt = callCIF(cif, "optimize", 2.3, myFunPtr)
+</r:code>
+This the returns the value  that optimizes this function,
+based on the algorithm in <c:routine>optimize</c:routine>.
+
+</para>
+
+<section>
+<title>R functions as pointers to C routines</title>
+<para>
+What if we want to implement the function to be optimized
+as R  code. This is certainly more convenient to our work flow
+as we do not have to step away from R and write the code in C,
+compile and debug it and then  load it.
+We might have our likelihood function  as something like
+
+<r:function><![CDATA[
+lik = function(theta) 
+        sum(log(dexp(data, theta)))
+]]></r:function>
+
+or using a closure to avoid the global variable
+<r:var>data</r:var>
+
+<r:function><![CDATA[
+likGenerator = 
+ function(data)
+    function(theta) 
+        sum(log(dexp(data, theta)))
+]]></r:function>
+and the
+
+<r:code>
+myLik = likGenerator(myData)
+</r:code>
+
+We want to pass this as the <c:arg>userData</c:arg> argument to
+<c:routine>optimize</c:routine> and arrange for the C routine we pass
+as the C routine pointer argument - <c:arg>fun</c:arg> - to take the
+candidate value and the user data (the R function) and to turn this
+into a call to the R function which will evaluate the likelihood.
+
+To do this, we need to create this C routine to call our function.
+If we were to write it by hand, it might look something like the following:
+<c:code>
+double
+R_myFun(double val, void *data)
+{
+    SEXP call, ans;
+    PROTECT( call = allocVector(LANGSXP, 2));
+    SETCAR(call, (SEXP) data);
+    SETCAR(CDR(call), ScalarReal(val));
+    ans = Rf_eval(call, R_GlobalEnv);
+    UNPROTECT(1);
+    return(asReal(ans));
+}
+</c:code>
+This creates a call to a function and inserts the
+function and the candidate value as R objects.
+Then  it evaluates the call and converts the result
+to a numeric scalar and returns the value.
+</para>
+<para>
+We can use this in our call to <c:routine>optimize</c:routine>
+as
+<c:code>
+fun.ptr =  getNativeSymbolInfo("R_myFun")$address
+callCIF(cif, "optimize", 2.3, fun.ptr, myLik)
+</c:code>
+The  <c:routine>optimize</c:routine> routine has no
+knowledge that R was called to evaluate the function.
+Instead it has merely invoked our routine <c:routine>R_myFun</c:routine>.
+</para>e
+<para>
+Note that the routine <c:routine>R_myFun</c:routine> was created to
+have the same signature as the function pointer expected by
+<c:routine>optimize</c:routine>.  Furthermore, the body of the routine
+would be different and more involved if there were additional
+parameters of different types in the routine that in turn had to be
+passed to the R function.  So what we would like is a mechanism to
+automate the create of such a wrapper routine.  We can do this with a
+description of the signature and data types in the function pointer.
+But we cannot arrange to have the routine called unless we compile and
+load it.
+</para>
+<para>
+We can generate the code in R from the CIF types or from the
+translation unit description of the function pointer.
+After we do this and write it to a file, we then compile and load the
+code and continue  as if we had written the code manually, as above.
+So let's now focus on how we generate this routine using
+functionality in <omg:pkg>RGCCTranslationUnit</omg:pkg>.
+</para>
+
+<para>
+See funPtrTU.R We will write a function that takes an description of a
+function pointer from the translation unit and generates a wrapper
+routine that calls an R function.  The function needs the description
+of the function pointer, the name of the new routine to create and may
+require the caller to specify which parameter refers to the R
+function, i.e. the user data passed to the routine.  The function
+generates code very similar to that in the
+<c:routine>R_myFun</c:routine> code above. It creates an R data
+structure to represent the call with one less arguments than the
+number of parameters passed to the actual routine.  This is because we
+don't pass the user data to R since this is the R function object.
+Our routine then adds the corresponding R value for each of the
+parameters in the routine to the call.  Then it invokes the call with
+<c:routine>Rf_eval</c:routine>.  The final step is to convert the R
+object returned from the R function to the appropriate C
+representation.  Within the code, there are declarations of local
+variables and simple R memory management.
+
+
+<r:function>
+<xi:include href="funPtrTU.R" parse="text"/>
+</r:function>
+</para>
+<para>
+
+We can now call this code for our particular example
+and then test it.
+<r:code>
+<xi:include href="funPtrTest.R" parse="text"/>
+</r:code>
+
+</para>
+
+</section>
+<section>
+<title>Compiling directly with <omg:pkg>Rllvm</omg:pkg></title>
+<para>
+We want to illustrate a different approach than generating C code 
+via <omg:pkg>RGCCTranslationUnit</omg:pkg>.
+Instead of assuming the machine has a compiler such as gcc
+and having to invoke it and get the compilation and linker flags 
+set appropriately or call the SHLIB command in R,
+we want to compile and load the code directly within in R.
+The <omg:pkg>Rllvm</omg:pkg> package allows us to do this.
+</para>
+<para>
+<omg:pkg>Rllvm</omg:pkg> is an interface to the low-level virtual machine
+software that can portably generate machine code on different 
+computer architectures. Within R, we can create descriptions
+of the definitions (not just declarations) of native routines
+and have llvm generate the machine code to implement those
+within the R process. So we can generate the implementation
+of of <c:routine>R_myFun</c:routine> as we would write it
+above and then use the routine directly within R without 
+calls to a compiler, etc.  And we can do this for
+arbitrary function pointer signatures.
+
+</para>
+<para>
+Using the C code above as a template, we can generate the 
+<omg:pkg>Rllvm</omg:pkg> code to define the equivalent routine.
+<r:code>
+
+</r:code>
+
+
+</para>
+<para>
+There is no doubt that this is a complex task.  We are working with
+the instruction set of a low-level virtual machine.  This makes
+writing C code seem terse, let alone R code.  The point of this
+example is not to suggest this is how R users should consider writing
+wrapper routines for passing R functions as C function pointers.
+Instead, the aim is to illustrate that this can be automated using
+<omg:pkg>RGCCTranslationUnit</omg:pkg> and <omg:pkg>Rllvm</omg:pkg>
+and can be used via <omg:pkg>Rllvm</omg:pkg>.
+My hope is that advanced users will be able to explore additional
+uses of these powerful underlying technologies and the
+R interfaces to them.
+</para>
+</section>
+
+</section>
+
+
+<section>
+<title>Varargs</title>
+
+<para>
+ libffi does not provide support for routines
+that accept a variable number of arguments via the 
+<dots/> keyword. However, we can still use <omg:pkg>Rffi</omg:pkg>
+to invoke them. Consider the standard function 
+<c:func>printf</c:func> which prints a formatted string
+on the standard output, i.e. the console by default.
+Of course, we can this with R using 
+<r:func>sprintf</r:func> and <r:func>cat</r:func>.
+However, the goal here is merely to provide an example
+signatures for individual calls.</check>
+</para>
+</section>
+
+
+</article>

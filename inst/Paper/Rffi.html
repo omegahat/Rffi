@@ -1,0 +1,504 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml"><head><meta http-equiv="Content-Type" content="text/html; charset=ISO-8859-1">
+<title>An automated mechanism for invoking C routines from R</title><link rel="stylesheet" href="/Users/duncan/Classes/StatComputing/XDynDocs/inst/CSS/OmegaTech.css" type="text/css"></link><meta name="generator" content="DocBook XSL Stylesheets V1.75.2"></meta>
+<link xmlns="" rel="stylesheet" type="text/css" href="http://yui.yahooapis.com/2.8.0r4/build/tabview/assets/skins/sam/tabview.css">
+<script xmlns="" type="text/javascript" src="http://yui.yahooapis.com/2.8.0r4/build/yahoo-dom-event/yahoo-dom-event.js"></script>
+<script xmlns="" type="text/javascript" src="http://yui.yahooapis.com/2.8.0r4/build/element/element-min.js"></script>
+<script xmlns="" type="text/javascript" src="http://yui.yahooapis.com/2.8.0r4/build/tabview/tabview-min.js"></script>
+<script xmlns="" type="text/javascript" src="/Users/duncan/Classes/StatComputing/XDynDocs/inst/JavaScript/yahooTabUtils.js"></script>
+<script xmlns="" type="text/javascript" src="http://www.omegahat.org/DynDocs/JavaScript/toggleHidden.js"></script>
+</head><body class="yui-skin-sam">
+<script xmlns="" type="text/javascript"><!--
+var toggleCodeIds = [
+ 
+   "id36262108", 
+   "id36262288", 
+   "id36262300", 
+   "id36262310", 
+   "id36262339", 
+   "id36262429", 
+   "id36262474"
+];
+--></script><p xmlns=""></p>
+<div class="article" title="An automated mechanism for invoking C routines from R"><div class="titlepage"><div><div><h2 class="title"><a id="id36210934"></a>An automated mechanism for invoking C routines from R</h2></div><div><h3 class="subtitle"><i>The <a xmlns:omg="http://www.omegahat.org" xmlns:rwx="http://www.omegahat.org/RwxWidgets" xmlns="" href="http://www.omegahat.org/Rffi">Rffi</a>, <a xmlns:omg="http://www.omegahat.org" xmlns:rwx="http://www.omegahat.org/RwxWidgets" xmlns="" href="http://www.omegahat.org/RGCCTranslationUnit">RGCCTranslationUnit</a> and <a xmlns:omg="http://www.omegahat.org" xmlns:rwx="http://www.omegahat.org/RwxWidgets" xmlns="" href="http://www.omegahat.org/Rllvm">Rllvm</a> packages</i></h3></div><div><div class="author"><h3 class="author"><span class="firstname">Duncan</span> <span class="surname">Temple Lang</span></h3><div class="affiliation"><span class="orgname">University of California at Davis<br></br></span> <span class="orgdiv">Department of Statistics<br></br></span></div></div></div></div><hr></hr></div><div class="abstract" title="Abstract"><p class="title"><b>Abstract</b></p><p>
+We describe an approach to calling arbitrary C routines from R.  This
+is an alternative mechanism from writing wrapper routines via the .C
+or .Call interfaces.  This approach involves dynamically describing
+the signature of the routine - the types of inputs and its outputs -
+of a routine. We then use this description without any supporting C
+code to invoke the existing routine.  This approach can handle scalar
+data types as well as complex structures.  We also illustrate a
+mechanism for automating this dynamic interface by programatically
+reading the existing C code and generating the signatures and 
+data structures descriptions. We also suggest an approach to making
+R more efficient using compiled code.
+</p></div><div class="section"><div class="titlepage"><div><div><h2 class="title" style="clear: both"><a id="id36261922"></a></h2></div></div></div><p>
+High-level interpreted languages such as R, MATLAB and Python, typically provide
+a mechanism to invoke compiled, native code.
+One can pass values from those languages across the interface
+to C/C++ and FORTRAN routines. The values are marshaled to the corresponding
+representation in C/C++ or FORTRAN and control is passed
+to the native routine. The results are then marshaled back to an R representation.
+In R, this foreign function interface (FFI) is available via the
+<i xmlns:s3="http://www.r-project.org/S3" xmlns:cpp="http://www.cplusplus.org" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns="" class="rfunc"><a href="Help//.C.html">.C()
+  </a></i>, <i xmlns:s3="http://www.r-project.org/S3" xmlns:cpp="http://www.cplusplus.org" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns="" class="rfunc"><a href="Help//.Call.html">.Call()
+  </a></i>, <i xmlns:s3="http://www.r-project.org/S3" xmlns:cpp="http://www.cplusplus.org" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns="" class="rfunc"><a href="Help//.FORTRAN.html">.FORTRAN()
+  </a></i>
+and <i xmlns:s3="http://www.r-project.org/S3" xmlns:cpp="http://www.cplusplus.org" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns="" class="rfunc"><a href="Help//.External.html">.External()
+  </a></i> functions.
+The typical sequence of steps to interfacing to a routine
+is 
+</p><div class="orderedlist"><ol class="orderedlist" type="1"><li class="listitem"><p>identify the routine and its signature - types of its input parameters and its return type</p></li><li class="listitem"><p>determine whether to invoke the routine via the <i xmlns:s3="http://www.r-project.org/S3" xmlns:cpp="http://www.cplusplus.org" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns="" class="rfunc"><a href="Help//.C.html">.C()
+  </a></i> or <i xmlns:s3="http://www.r-project.org/S3" xmlns:cpp="http://www.cplusplus.org" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns="" class="rfunc"><a href="Help//.Call.html">.Call()
+  </a></i> interface</p></li><li class="listitem"><p>write a wrapper routine that conforms to the specific types allowed by the chosen interface (.C or .Call)</p></li><li class="listitem"><p>compile the new wrapper routine, and link as a shared library with the compiled target routine</p></li><li class="listitem"><p>dynamically load the DSO containing the wrapper routine</p></li><li class="listitem"><p>invoke the routine, coercing the R values to the relevant R data types to conform with the expected types of the wrapper routine</p></li><li class="listitem"><p>debug using a native debugger such as gdb</p></li></ol></div><p>
+
+This is often a time consuming task and some challenging for those less familiar
+with writing this type of code. One is working in two languages simultaneously
+and good design decisions are not initially obvious.
+</p><p>
+In this paper, we present an alternative mechanism for invoking native C routines
+from within R.
+It removes the need to determine the appropriate R interface (.C or .Call) (step 2),
+write a wrapper routine in C, compile and link and load that compiled wrapper routine
+(steps 3, 4, and 5).  And because the user doesn't have to write  C code, there
+is no new native code to debug (step 7).
+So we have reduced many of the steps.
+We have also removed the need for the user to have tools
+such as a compiler installed.
+</p><p>
+The key to the mechanism we describe here is libffi.
+This is a compiled library that provides data structures and  routines
+via the C language which enable us to invoke routines  by simply
+describing the types of the inputs and output.
+libffi takes care of making the call and marshaling
+the raw inputs to and from the routine being called.
+It does this in a portable manner across different operating
+systems, allowing us to have a single piece of code for
+R that works on all systems.
+The <a xmlns:omg="http://www.omegahat.org" xmlns:rwx="http://www.omegahat.org/RwxWidgets" xmlns="" href="http://www.omegahat.org/Rffi">Rffi</a> package provides an interface
+to libffi and supporting functionality to convert 
+between R and C data types in a general manner.
+
+</p><p>
+This libffi-based mechanism for interfacing to native routines
+and data structure is simpler in many ways than the 
+regular <i xmlns:s3="http://www.r-project.org/S3" xmlns:cpp="http://www.cplusplus.org" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns="" class="rfunc"><a href="Help//.C.html">.C()
+  </a></i> or <i xmlns:s3="http://www.r-project.org/S3" xmlns:cpp="http://www.cplusplus.org" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns="" class="rfunc"><a href="Help//.Call.html">.Call()
+  </a></i> interfaces.
+Importantly, it allows us to invoke arbitrary routines
+directly without having to write a wrapper routine.
+However, it does require understanding a new model.
+Furthermore, the descriptions must be available and instantiated at
+run-time. This potentially makes the mechanism slightly slower
+than the <i xmlns:s3="http://www.r-project.org/S3" xmlns:cpp="http://www.cplusplus.org" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns="" class="rfunc"><a href="Help//.C.html">.C()
+  </a></i> or <i xmlns:s3="http://www.r-project.org/S3" xmlns:cpp="http://www.cplusplus.org" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns="" class="rfunc"><a href="Help//.Call.html">.Call()
+  </a></i> interfaces.
+This is insignificant </p><div class="note" title="Note" style="margin-left: 0.5in; margin-right: 0.5in;"><table border="0" summary="Note"><tr><td rowspan="2" align="center" valign="top" width="25"><img alt="[Note]" src="/Users/duncan/Classes/StatComputing/XDynDocs/inst/XSL/docbook-xsl-current/images/note.svg"></img></td><th align="left">Note</th></tr><tr><td align="left" valign="top"><p>Measure</p></td></tr></table></div><p> and so
+<a xmlns:omg="http://www.omegahat.org" xmlns:rwx="http://www.omegahat.org/RwxWidgets" xmlns="" href="http://www.omegahat.org/Rffi">Rffi</a> potential offers benefits in both flexibility and simplicity
+
+</p><p>
+The paper  is divided into four sections.
+First we describe the Rffi package
+and how we can manually create descriptions
+of routines and data structures in C
+and use these to invoke routines from R without
+any compilation of code (after the Rffi package is installed).
+In the second part of the paper, we describe
+how we can use a tool such as RCIndex
+or RGCCTranslationUnit to programmatically
+generate the routine and data structure descriptions
+by automating the reading of the C code.
+In the third part of the paper, we show how we can 
+pass function pointers in C as arguments in calls from R
+and also how we can use R functions as implementations of
+(This part I might not bother to do.)
+We end the paper with a brief discussion 
+about different enhancements that others might want
+to pursue.
+
+
+
+</p><p>
+Need for support routines at run-time,
+e.g. to convert arrays in C to R vectors
+when the length of the array is not known when R is
+converting the result in Rffi, but just sees a pointer.
+</p></div><div class="section" title="The Basics of Rffi"><div class="titlepage"><div><div><h2 class="title" style="clear: both"><a id="id36262057"></a>The Basics of <a xmlns:omg="http://www.omegahat.org" xmlns:rwx="http://www.omegahat.org/RwxWidgets" xmlns="" href="http://www.omegahat.org/Rffi">Rffi</a></h2></div></div></div><p>
+In this section of the paper we present the basic facilities provided
+by the <a xmlns:omg="http://www.omegahat.org" xmlns:rwx="http://www.omegahat.org/RwxWidgets" xmlns="" href="http://www.omegahat.org/Rffi">Rffi</a> package for directly and dynamically
+interfacing to existing compiled routines.  This approach allows us to
+describe the details of a routine and the layout or definition of
+complex data structures within R. We then use these generic
+descriptions to invoke specific functions corresponding to that
+interface or that particular definition.  The essential ideas are that
+we create a description of a routine to specify the different
+parameter and return types of the routine.  This then allows us to
+invoke that native routine from R, passing R objects as the arguments
+to the routine and obtaining both the returned value and any mutable
+inputs that might have been changed.  The types of the inputs and
+outputs of a routine can be simple primitive C-level data types such
+as int, double, short, long, char * (for character strings) and so on.
+We can also define complex data structures (structs) by defining the
+collection of field names and types.  The <a xmlns:omg="http://www.omegahat.org" xmlns:rwx="http://www.omegahat.org/RwxWidgets" xmlns="" href="http://www.omegahat.org/Rffi">Rffi</a>
+package also handles marshaling such struct types to and from R.  In
+this section we illustrate how to invoke different native routines
+from R.
+
+</p><p>
+We start with a very simple sample routine that passes an integer
+value to a C routine and returns an integer.  The routine
+<i xmlns:s3="http://www.r-project.org/S3" xmlns:cpp="http://www.cplusplus.org" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns=""><a href="c:routine(%22intCall%22)">intCall</a></i> in the <a xmlns:omg="http://www.omegahat.org" xmlns:rwx="http://www.omegahat.org/RwxWidgets" xmlns="" href="http://www.omegahat.org/Rffi">Rffi</a> package
+provides an example.  In order to be able to invoke such a routine, we
+need to describe a generic routine with this signature - inputs are a single
+integer and outputs are a double.  A signature
+is the both the collection of input types - the parameters - and the
+return type.  We create a call interface object - a CIF - to describe the
+class of routines with the same signature.
+The R function <i xmlns:s3="http://www.r-project.org/S3" xmlns:cpp="http://www.cplusplus.org" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns="" class="rfunc"><a href="Help//CIF.html">CIF()
+  </a></i> allows us to define such an interface
+that we can use for any C routine with this particular signature.
+For our routine that accepts an integer and returns a
+C <b xmlns:rs="http://www.omegahat.org/RS" xmlns:s="http://cm.bell-labs.com/stat/S4" xmlns="" class="rkeyword">double</b> we create the CIF with the R code
+
+</p><div xmlns="" class="codeToggle"><div class="unhidden" id="id36262108"><div><pre class="rcode" title="R code">
+cif = CIF(doubleType, list(sint32Type))
+</pre></div></div></div>
+<div xmlns="" class="clearFloat"></div>
+<p>
+The first argument is the return type.
+If the routine has input parameters, 
+we specify their types via a list.
+The list can have names to give symbolic names to the 
+parameters, but these are not used at present.
+There are 15 built-in data type identifiers 
+available as R variables in the <a xmlns:omg="http://www.omegahat.org" xmlns:rwx="http://www.omegahat.org/RwxWidgets" xmlns="" href="http://www.omegahat.org/Rffi">Rffi</a>
+package.
+
+These are  described in table ???
+</p><div class="table"><a id="id36262119"></a><p class="title"><b>Table 1. Standard data type identifiers</b></p><div class="table-contents"><table summary="Standard data type identifiers" border="1"><colgroup><col></col><col></col></colgroup><thead><tr><th>R variable</th><th>C data type</th></tr></thead><tbody><tr><td><b xmlns="" xmlns:rs="http://www.omegahat.org/RS" xmlns:s="http://cm.bell-labs.com/stat/S4" class="$">doubleType</b></td><td>double</td></tr><tr><td><b xmlns="" xmlns:rs="http://www.omegahat.org/RS" xmlns:s="http://cm.bell-labs.com/stat/S4" class="$">floatType</b></td><td>float</td></tr><tr><td><b xmlns="" xmlns:rs="http://www.omegahat.org/RS" xmlns:s="http://cm.bell-labs.com/stat/S4" class="$">longdoubleType</b></td><td>long double</td></tr><tr><td><b xmlns="" xmlns:rs="http://www.omegahat.org/RS" xmlns:s="http://cm.bell-labs.com/stat/S4" class="$">pointerType</b></td><td>pointer to any type of object/value</td></tr><tr><td><b xmlns="" xmlns:rs="http://www.omegahat.org/RS" xmlns:s="http://cm.bell-labs.com/stat/S4" class="$">sint16Type</b></td><td>signed 16-bit integer</td></tr><tr><td><b xmlns="" xmlns:rs="http://www.omegahat.org/RS" xmlns:s="http://cm.bell-labs.com/stat/S4" class="$">sint32Type</b></td><td>signed 32-bit integer, corresponding to int</td></tr><tr><td><b xmlns="" xmlns:rs="http://www.omegahat.org/RS" xmlns:s="http://cm.bell-labs.com/stat/S4" class="$">sint64Type</b></td><td>signed 64-bit integer</td></tr><tr><td><b xmlns="" xmlns:rs="http://www.omegahat.org/RS" xmlns:s="http://cm.bell-labs.com/stat/S4" class="$">sint8Type</b></td><td>signed 8-bit integer</td></tr><tr><td><b xmlns="" xmlns:rs="http://www.omegahat.org/RS" xmlns:s="http://cm.bell-labs.com/stat/S4" class="$">stringType</b></td><td>a char *, a pointer to a string. This is introduced in R to identify strings rather than generic pointers.</td></tr><tr><td><b xmlns="" xmlns:rs="http://www.omegahat.org/RS" xmlns:s="http://cm.bell-labs.com/stat/S4" class="$">structType</b></td><td>a struct description containing information about the
+       types of the fields</td></tr><tr><td><b xmlns="" xmlns:rs="http://www.omegahat.org/RS" xmlns:s="http://cm.bell-labs.com/stat/S4" class="$">uint16Type</b></td><td>unsigned 16-bit integer</td></tr><tr><td><b xmlns="" xmlns:rs="http://www.omegahat.org/RS" xmlns:s="http://cm.bell-labs.com/stat/S4" class="$">uint32Type</b></td><td>unsigned 32-bit integer</td></tr><tr><td><b xmlns="" xmlns:rs="http://www.omegahat.org/RS" xmlns:s="http://cm.bell-labs.com/stat/S4" class="$">uint64Type</b></td><td>unsigned 64-bit integer</td></tr><tr><td><b xmlns="" xmlns:rs="http://www.omegahat.org/RS" xmlns:s="http://cm.bell-labs.com/stat/S4" class="$">uint8Type</b></td><td>unsigned 8-bit integer</td></tr><tr><td><b xmlns="" xmlns:rs="http://www.omegahat.org/RS" xmlns:s="http://cm.bell-labs.com/stat/S4" class="$">voidType</b></td><td>the void type</td></tr></tbody></table></div></div><p><br class="table-break"></br>
+</p></div><div class="section" title="Programmatically Obtaining &amp; Using Interface Descriptions"><div class="titlepage"><div><div><h2 class="title" style="clear: both"><a id="id36262263"></a>Programmatically Obtaining &amp; Using Interface Descriptions</h2></div></div></div><p>
+
+</p></div><div class="section" title="Using Function Pointers"><div class="titlepage"><div><div><h2 class="title" style="clear: both"><a id="id36262273"></a>Using Function Pointers</h2></div></div></div><p>
+Consider numerical optimization.
+Suppose we have C code that takes
+a starting value/vector of the parameters
+and a function that is to be optimized
+and its derivative/gradient.
+The C routine takes care of the internal details
+of the optimization algorithm such as
+step halving, etc.
+As it tries to find the optimal value of the parameters,
+it invokes the function and gradient.
+We'll ignore the gradient for the moment.
+The C routine we want to invoke is declared as
+</p><pre xmlns:s3="http://www.r-project.org/S3" xmlns:cpp="http://www.cplusplus.org" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns="" class="C">
+int
+optimize(double start, double (*fun)(double val, void *userData), void *userData);
+</pre>
+<p><br xmlns:s3="http://www.r-project.org/S3" xmlns:cpp="http://www.cplusplus.org" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns="">
+
+We can create a CIF for this routine with
+
+</p><div xmlns="" class="codeToggle"><div class="unhidden" id="id36262288"><div><pre class="rcode" title="R code">
+cif = CIF(doubleType, list(doubleType, pointerType, pointerType), rep(FALSE, 3))
+</pre></div></div></div>
+<div xmlns="" class="clearFloat"></div>
+<p>
+Now we need to provide the routine that gives the value of the function
+to be optimized.
+
+If we have loaded the DSO with the routine that we want to pass to 
+<i xmlns:s3="http://www.r-project.org/S3" xmlns:cpp="http://www.cplusplus.org" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns=""><a href="c:routine(%22optimize%22)">optimize</a></i>,
+we can  access it with <i xmlns:s3="http://www.r-project.org/S3" xmlns:cpp="http://www.cplusplus.org" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns="" class="rfunc"><a href="Help//getNativeSymbolInfo.html">getNativeSymbolInfo()
+  </a></i>,
+e.g.
+
+</p><div xmlns="" class="codeToggle"><div class="unhidden" id="id36262300"><div><pre class="rcode" title="R code">
+myFunPtr = getNativeSymbolInfo("myFun")$address
+</pre></div></div></div>
+<div xmlns="" class="clearFloat"></div>
+<p>
+This is an <i xmlns:s3="http://www.r-project.org/S3" xmlns:cpp="http://www.cplusplus.org" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns=""><a href="Help/externalptr-class.html">externalptr</a></i> object that contains
+the memory address of the routine. It is a pointer to a
+C routine.
+
+We can pass this to <i xmlns:s3="http://www.r-project.org/S3" xmlns:cpp="http://www.cplusplus.org" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns=""><a href="c:routine(%22optimize%22)">optimize</a></i> now using 
+</p><div xmlns="" class="codeToggle"><div class="unhidden" id="id36262310"><div><pre class="rcode" title="R code">
+opt = callCIF(cif, "optimize", 2.3, myFunPtr)
+</pre></div></div></div>
+<div xmlns="" class="clearFloat"></div>
+<p>
+This the returns the value  that optimizes this function,
+based on the algorithm in <i xmlns:s3="http://www.r-project.org/S3" xmlns:cpp="http://www.cplusplus.org" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns=""><a href="c:routine(%22optimize%22)">optimize</a></i>.
+
+</p><div class="section" title="R functions as pointers to C routines"><div class="titlepage"><div><div><h3 class="title"><a id="id36262319"></a>R functions as pointers to C routines</h3></div></div></div><p>
+What if we want to implement the function to be optimized
+as R  code. This is certainly more convenient to our work flow
+as we do not have to step away from R and write the code in C,
+compile and debug it and then  load it.
+We might have our likelihood function  as something like
+
+</p><pre xmlns:s3="http://www.r-project.org/S3" xmlns:cpp="http://www.cplusplus.org" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns="" class="rfunction">
+lik = function(theta) 
+        sum(log(dexp(data, theta)))
+</pre>
+<p><br xmlns:s3="http://www.r-project.org/S3" xmlns:cpp="http://www.cplusplus.org" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns="">
+
+or using a closure to avoid the global variable
+<b xmlns:rs="http://www.omegahat.org/RS" xmlns:s="http://cm.bell-labs.com/stat/S4" xmlns="" class="$">data</b>
+
+</p><pre xmlns:s3="http://www.r-project.org/S3" xmlns:cpp="http://www.cplusplus.org" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns="" class="rfunction">
+likGenerator = 
+ function(data)
+    function(theta) 
+        sum(log(dexp(data, theta)))
+</pre>
+<p><br xmlns:s3="http://www.r-project.org/S3" xmlns:cpp="http://www.cplusplus.org" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns="">
+and the
+
+</p><div xmlns="" class="codeToggle"><div class="unhidden" id="id36262339"><div><pre class="rcode" title="R code">
+myLik = likGenerator(myData)
+</pre></div></div></div>
+<div xmlns="" class="clearFloat"></div>
+<p>
+
+We want to pass this as the </p><pre xmlns:s3="http://www.r-project.org/S3" xmlns:cpp="http://www.cplusplus.org" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns="" class="Carg">userData</pre>
+<p><br xmlns:s3="http://www.r-project.org/S3" xmlns:cpp="http://www.cplusplus.org" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns=""> argument to
+<i xmlns:s3="http://www.r-project.org/S3" xmlns:cpp="http://www.cplusplus.org" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns=""><a href="c:routine(%22optimize%22)">optimize</a></i> and arrange for the C routine we pass
+as the C routine pointer argument - </p><pre xmlns:s3="http://www.r-project.org/S3" xmlns:cpp="http://www.cplusplus.org" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns="" class="Carg">fun</pre>
+<p><br xmlns:s3="http://www.r-project.org/S3" xmlns:cpp="http://www.cplusplus.org" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns=""> - to take the
+candidate value and the user data (the R function) and to turn this
+into a call to the R function which will evaluate the likelihood.
+
+To do this, we need to create this C routine to call our function.
+If we were to write it by hand, it might look something like the following:
+</p><pre xmlns:s3="http://www.r-project.org/S3" xmlns:cpp="http://www.cplusplus.org" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns="" class="C">
+double
+R_myFun(double val, void *data)
+{
+    SEXP call, ans;
+    PROTECT( call = allocVector(LANGSXP, 2));
+    SETCAR(call, (SEXP) data);
+    SETCAR(CDR(call), ScalarReal(val));
+    ans = Rf_eval(call, R_GlobalEnv);
+    UNPROTECT(1);
+    return(asReal(ans));
+}
+</pre>
+<p><br xmlns:s3="http://www.r-project.org/S3" xmlns:cpp="http://www.cplusplus.org" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns="">
+This creates a call to a function and inserts the
+function and the candidate value as R objects.
+Then  it evaluates the call and converts the result
+to a numeric scalar and returns the value.
+</p><p>
+We can use this in our call to <i xmlns:s3="http://www.r-project.org/S3" xmlns:cpp="http://www.cplusplus.org" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns=""><a href="c:routine(%22optimize%22)">optimize</a></i>
+as
+</p><pre xmlns:s3="http://www.r-project.org/S3" xmlns:cpp="http://www.cplusplus.org" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns="" class="C">
+fun.ptr =  getNativeSymbolInfo("R_myFun")$address
+callCIF(cif, "optimize", 2.3, fun.ptr, myLik)
+</pre>
+<p><br xmlns:s3="http://www.r-project.org/S3" xmlns:cpp="http://www.cplusplus.org" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns="">
+The  <i xmlns:s3="http://www.r-project.org/S3" xmlns:cpp="http://www.cplusplus.org" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns=""><a href="c:routine(%22optimize%22)">optimize</a></i> routine has no
+knowledge that R was called to evaluate the function.
+Instead it has merely invoked our routine <i xmlns:s3="http://www.r-project.org/S3" xmlns:cpp="http://www.cplusplus.org" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns=""><a href="c:routine(%22R_myFun%22)">R_myFun</a></i>.
+</p>e
+<p>
+Note that the routine <i xmlns:s3="http://www.r-project.org/S3" xmlns:cpp="http://www.cplusplus.org" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns=""><a href="c:routine(%22R_myFun%22)">R_myFun</a></i> was created to
+have the same signature as the function pointer expected by
+<i xmlns:s3="http://www.r-project.org/S3" xmlns:cpp="http://www.cplusplus.org" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns=""><a href="c:routine(%22optimize%22)">optimize</a></i>.  Furthermore, the body of the routine
+would be different and more involved if there were additional
+parameters of different types in the routine that in turn had to be
+passed to the R function.  So what we would like is a mechanism to
+automate the create of such a wrapper routine.  We can do this with a
+description of the signature and data types in the function pointer.
+But we cannot arrange to have the routine called unless we compile and
+load it.
+</p><p>
+We can generate the code in R from the CIF types or from the
+translation unit description of the function pointer.
+After we do this and write it to a file, we then compile and load the
+code and continue  as if we had written the code manually, as above.
+So let's now focus on how we generate this routine using
+functionality in <a xmlns:omg="http://www.omegahat.org" xmlns:rwx="http://www.omegahat.org/RwxWidgets" xmlns="" href="http://www.omegahat.org/RGCCTranslationUnit">RGCCTranslationUnit</a>.
+</p><p>
+See funPtrTU.R We will write a function that takes an description of a
+function pointer from the translation unit and generates a wrapper
+routine that calls an R function.  The function needs the description
+of the function pointer, the name of the new routine to create and may
+require the caller to specify which parameter refers to the R
+function, i.e. the user data passed to the routine.  The function
+generates code very similar to that in the
+<i xmlns:s3="http://www.r-project.org/S3" xmlns:cpp="http://www.cplusplus.org" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns=""><a href="c:routine(%22R_myFun%22)">R_myFun</a></i> code above. It creates an R data
+structure to represent the call with one less arguments than the
+number of parameters passed to the actual routine.  This is because we
+don't pass the user data to R since this is the R function object.
+Our routine then adds the corresponding R value for each of the
+parameters in the routine to the call.  Then it invokes the call with
+<i xmlns:s3="http://www.r-project.org/S3" xmlns:cpp="http://www.cplusplus.org" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns=""><a href="c:routine(%22Rf_eval%22)">Rf_eval</a></i>.  The final step is to convert the R
+object returned from the R function to the appropriate C
+representation.  Within the code, there are declarations of local
+variables and simple R memory management.
+
+
+</p><pre xmlns:s3="http://www.r-project.org/S3" xmlns:cpp="http://www.cplusplus.org" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns="" class="rfunction">
+# This is for runFunPtr in ../../src/test.c - not the optimize() in the paper.
+
+createCallRFunctionWrapper =
+function(funPtr,    # the description of the function pointer - class FunctionPointer
+         funcName,  # name of the routine we create
+                    # index of parameter that is the user data containing the R function SEXP
+         userDataParam = findUserDataParam(funPtr),
+                    # names to use for the parameters of the routine
+         paramNames = names(funPtr@parmeters))
+{
+        # So we have an explicit representation for a FunctionPointer
+        # We have the return type and the parameters. From these we can
+        # define our wrapper routine
+  if(length(names(funPtr@parameters)) == 0)  #?  NULL since the TU loses them - yes!
+      names(funPtr@parameters) = paste("x", seq(along = funPtr@parameters), sep = "")
+
+
+     # Now create the body of the routine first.
+   params = funPtr@parameters
+   body = c(
+                  # local variables
+             "SEXP call, ans, ptr;", 
+
+                  # create the call
+             sprintf("PROTECT(ptr = call = allocVector(LANGSXP, %d));", length(params)),
+
+                  # put the function into the first element of the call
+             sprintf("SETCAR(ptr, (SEXP) %s); ptr = CDR(ptr);", names(params)[ userDataParam ]),
+                  # add each of the parameters, except the userDataParam
+             mapply(function(id, parm)
+                       sprintf("SETCAR(ptr, %s); ptr = CDR(ptr);", convertValueToR(id, parm@type)),
+                    names(params)[ - userDataParam], params[ - userDataParam]),
+
+                  # invoke the call
+             "ans = Rf_eval(call, R_GlobalEnv);",
+  
+             "UNPROTECT(1);",
+                  # conver the result back to a C value
+             sprintf("return(%s);", gsub(";$", "", convertRValue("",  "ans", funPtr@returnType)))
+            )
+
+       # Now we have to get its declaration or signature to add to the top of the body
+   ret = getNativeDeclaration("", funPtr@returnType, addSemiColon = FALSE)
+   decl = mapply(getNativeDeclaration, names(params),
+                                       lapply(params, function(x) x@type),
+                  MoreArgs = list(addSemiColon = FALSE))
+
+
+       # put the pieces of the code together into a character vector
+  c(ret,
+      sprintf("%s(%s)", funcName, paste(decl, collapse = ", ")),
+      "{",
+      paste("    ", body),
+      "}")
+
+}
+
+
+
+
+</pre>
+<p><br xmlns:s3="http://www.r-project.org/S3" xmlns:cpp="http://www.cplusplus.org" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns="">
+</p><p>
+
+We can now call this code for our particular example
+and then test it.
+</p><div xmlns="" class="codeToggle"><div class="unhidden" id="id36262429"><div><pre class="rcode" title="R code">
+library(RGCCTranslationUnit)
+ # read the TU file
+tu = parseTU("../TU/test.c.001t.tu")
+ # find only the routines in files that start with test
+r = getRoutines(tu, "test")
+ # get the routine of interest
+f = r$runFunPtr
+ # resolve all the data types referenced in the routine
+f = resolveType(f, tu)
+
+ # Verify the types interactively
+sapply(f$parameters, class)
+sapply(f$parameters, function(x) class(x$type))
+
+ # Get the function pointer type parameter
+funPtr = f$parameters[["fun"]]$type
+class(funPtr) == "FunctionPointer"
+
+  # Now we generate the wrapper routine, sourceing the function to do this
+  # and then invoking it with the relevant arguments.
+source("funPtrTU.R")
+code = createCallRFunctionWrapper(funPtr, "R_myFun2", 2, paramNames = c("value", "userData"))
+  # Write the generated code along with the necessary C header files
+cat("#include &lt;Rdefines.h&gt;",
+    code,
+    sep = "\n", file = "foo.c")
+
+
+    # Compile the foo.c into a DSO
+  system(sprintf("%s/bin/R CMD SHLIB foo.c", R.home()))
+
+    # load the resulting DSO
+  dyn.load("foo.so")
+    # get a reference to the newly generated routine which we
+    # can pass as the function pointer argument.
+  f = getNativeSymbolInfo("R_myFun2")$address
+
+     # Define the R function that will be called each iteration
+  myFun = function(val)
+               val + 1
+
+    # Now we can invoke the original C routine and pass our function pointer - R_myFun2
+    # and our R function - myFun. We create the CIF first and then invoke it.
+  library(Rffi)
+  cif = CIF(doubleType, list(sint32Type, doubleType, pointerType, pointerType), rep(FALSE, 4))
+
+  ans = callCIF(cif, "runFunPtr", 3, pi, f, myFun)
+  print(ans)
+
+
+</pre></div></div></div>
+<div xmlns="" class="clearFloat"></div>
+<p>
+
+</p></div><div class="section" title="Compiling directly with Rllvm"><div class="titlepage"><div><div><h3 class="title"><a id="id36262434"></a>Compiling directly with <a xmlns:omg="http://www.omegahat.org" xmlns:rwx="http://www.omegahat.org/RwxWidgets" xmlns="" href="http://www.omegahat.org/Rllvm">Rllvm</a></h3></div></div></div><p>
+We want to illustrate a different approach than generating C code 
+via <a xmlns:omg="http://www.omegahat.org" xmlns:rwx="http://www.omegahat.org/RwxWidgets" xmlns="" href="http://www.omegahat.org/RGCCTranslationUnit">RGCCTranslationUnit</a>.
+Instead of assuming the machine has a compiler such as gcc
+and having to invoke it and get the compilation and linker flags 
+set appropriately or call the SHLIB command in R,
+we want to compile and load the code directly within in R.
+The <a xmlns:omg="http://www.omegahat.org" xmlns:rwx="http://www.omegahat.org/RwxWidgets" xmlns="" href="http://www.omegahat.org/Rllvm">Rllvm</a> package allows us to do this.
+</p><p>
+<a xmlns:omg="http://www.omegahat.org" xmlns:rwx="http://www.omegahat.org/RwxWidgets" xmlns="" href="http://www.omegahat.org/Rllvm">Rllvm</a> is an interface to the low-level virtual machine
+software that can portably generate machine code on different 
+computer architectures. Within R, we can create descriptions
+of the definitions (not just declarations) of native routines
+and have llvm generate the machine code to implement those
+within the R process. So we can generate the implementation
+of of <i xmlns:s3="http://www.r-project.org/S3" xmlns:cpp="http://www.cplusplus.org" xmlns:xi="http://www.w3.org/2001/XInclude" xmlns=""><a href="c:routine(%22R_myFun%22)">R_myFun</a></i> as we would write it
+above and then use the routine directly within R without 
+calls to a compiler, etc.  And we can do this for
+arbitrary function pointer signatures.
+
+</p><p>
+Using the C code above as a template, we can generate the 
+<a xmlns:omg="http://www.omegahat.org" xmlns:rwx="http://www.omegahat.org/RwxWidgets" xmlns="" href="http://www.omegahat.org/Rllvm">Rllvm</a> code to define the equivalent routine.
+
+
+
+</p><p>
+There is no doubt that this is a complex task.  We are working with
+the instruction set of a low-level virtual machine.  This makes
+writing C code seem terse, let alone R code.  The point of this
+example is not to suggest this is how R users should consider writing
+wrapper routines for passing R functions as C function pointers.
+Instead, the aim is to illustrate that this can be automated using
+<a xmlns:omg="http://www.omegahat.org" xmlns:rwx="http://www.omegahat.org/RwxWidgets" xmlns="" href="http://www.omegahat.org/RGCCTranslationUnit">RGCCTranslationUnit</a> and <a xmlns:omg="http://www.omegahat.org" xmlns:rwx="http://www.omegahat.org/RwxWidgets" xmlns="" href="http://www.omegahat.org/Rllvm">Rllvm</a>
+and can be used via <a xmlns:omg="http://www.omegahat.org" xmlns:rwx="http://www.omegahat.org/RwxWidgets" xmlns="" href="http://www.omegahat.org/Rllvm">Rllvm</a>.
+My hope is that advanced users will be able to explore additional
+uses of these powerful underlying technologies and the
+R interfaces to them.
+</p></div></div></div></body></html>

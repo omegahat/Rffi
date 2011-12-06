@@ -1,0 +1,80 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<html> <head>
+<title></title>
+</head>
+
+<body>
+<h1></h1>
+
+<dl>
+  <dt>
+  <li> No need to write wrapper routines in C/C++
+  <dd>
+
+  <dt>
+  <li> No need to know how to write C/C++ code to leverage existing
+       C/C++ code. One just has to undestand the essential concepts of
+       the C/C++ data structures, pointers to them and memory allocation.
+  <dd>
+
+  <dt>
+  <li> Code is simpler to write, read and maintain as there is no C code.
+  <dd>
+
+  <dt>
+  <li> Can rapidly invoke a native routine and create and populate
+       data structures from any foreign/native DLL/DSO.
+  <dd>
+
+  <dt>
+  <li> Can rapidly prototype using native code.
+  <dd>
+
+  <dt>
+  <li> All of these mean that we can avoid distracting
+      details of writing, compiling, linking and loading
+      code to leverage native libraries.
+  <dd>
+
+  <dt>
+  <li> We do not need to have development libraries installed, but
+       just the  run-time libraries.
+  <dd>  To generate the interfaces programmatically (via the
+      <a href="http://www.omegahat.org/RGCCTUFFI">RGCCTUFFI</a>
+        package)  one does  need the header files.
+      But for manual construction of the call interface (CIF)
+     objects, there is no compiling or linking and so we don't need the
+      development libaries agains which we would link.
+      
+
+      
+</dl>
+
+
+<h2>Cons</h2>
+
+<dl>
+  <dt>
+  <li> Minimal type checking as values are passed from R to native code.
+  <dd>
+
+  <dt>
+  <li>  Code we write may not be portable as data structures may be
+     different on different platforms.  This applies to any C code we
+     might write as well and so is not really a reason against using
+     FFI.
+      However, there will be no error checking performed which would
+      occur when compiling C code.
+      
+      
+      
+  <dd>
+</dl>
+
+<hr>
+<address><a href="http://www.stat.ucdavis.edu/~duncan">Duncan Temple Lang</a>
+<a href=mailto:duncan@wald.ucdavis.edu>&lt;duncan@wald.ucdavis.edu&gt;</a></address>
+<!-- hhmts start -->
+Last modified: Mon Feb 14 10:48:18 PST 2011
+<!-- hhmts end -->
+</body> </html>

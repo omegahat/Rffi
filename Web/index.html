@@ -1,0 +1,64 @@
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">
+<html> <head>
+<link rel="stylesheet" href="http://www.omegahat.org/OmegaTech.css">
+<meta name="description" content="R interface to libffi"/>
+<meta name="keywords" content="R, libffi, dynamic, invocation, compiled"/>
+<title>Rffi: run-time/dynamic invocation of compiled routines from R</title>
+</head>
+
+<body>
+<h1>Rffi for run-time invocation of arbitrary compiled routines from R</h1>
+<p align=right>Last Release:
+ <a href="Rffi_0.3-0.tar.gz"> 0.3-0</a> (<font color="red">26 Jan 2011</font>)
+
+
+<p> This package provides a way to invoke arbitrary compiled routines
+(e.g. C/C++) from within R without having to develop, compile and load
+wrappers for those routines in C/C++.  This is an interface to <a
+href="http://sourceware.org/libffi/">libffi</a> which provides portable facilities for invoking
+foreign/compiled routines based on the types of their parameters and
+return value.  The code in libffi takes care of putting the arguments
+on the stack and invoking the routine and marshalling the return value
+back.  The Rffi package provides a layer on top of this to allow R
+objects to be passed as arguments to these routines and for the return
+values to be returned as R objects.
+
+<p>
+This is an alternative to explicitly writing C/C++ code
+to interface to existing C/C++ routines and then
+compiling and loading that compiled code in order to be able
+to invoke the original compiled routines.
+The package allows one to do this entirely within R code
+and within an R session rather than ahead of time.
+
+<p>
+Because this is dynamic, run-time invocation of arbitrary
+routines, there is an overhead that is not present when one
+manually  creates interfaces to routines where the parameter
+types, etc are known at run-time. Similarly, there is less
+protection from passing arguments of the wrong type.  However, there
+are benefits to this dynamic system and there are some type checks.
+
+<p>
+This package can be combined with meta-computing facilities for getting information
+about C/C++ routines automatically (e.g. <a
+href="RGCCTranslationUnit">RGCCTranslationUnit</a>
+that provide a dynamic mechanism for strongly checked, automated
+bindings to arbitrary C/C++ code.
+
+<h2>Documentation</h2>
+<dl>
+  <dt>
+  <li> <a href="Rffi.html">User's guide</a> 
+  <dd>
+</dl>
+
+
+
+<hr>
+<address><a href="http://www.stat.ucdavis.edu/~duncan/">Duncan Temple Lang</a>
+<a href=mailto:duncan@wald.ucdavis.edu>&lt;duncan@wald.ucdavis.edu&gt;</a></address>
+<!-- hhmts start -->
+Last modified: Wed Nov  3 12:19:27 PDT 2010
+<!-- hhmts end -->
+</body> </html>

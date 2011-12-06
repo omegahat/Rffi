@@ -1,0 +1,19 @@
+The basic idea
+
+Why this is useful in practice
+
+The primitives
+   CIF
+   built-in types
+   new types - structures, pointer types
+
+   address of pointer arguments 
+
+Run time support
+    alloc
+    intepreting generic pointers as particular types
+    "arrays" of primitives
+
+Examples
+
+Automated generation of the bindings - CIFs, classes for data structures

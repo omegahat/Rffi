@@ -1,0 +1,4 @@
+[Done] all parameters seem to be mutable in dbl in test.R on OS X, but no Linux.
+  NEW_LOGICAL() is initializing all elements to TRUE on my Mac version of R (2.12.0).
+
+

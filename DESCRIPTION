@@ -1,0 +1,29 @@
+Package: Rffi
+Version: 0.3-0
+Title: Interface to libffi to dynamically invoke arbitrary 
+     compiled routines at run-time without compiled bindings
+Author: Duncan Temple Lang
+Imports: methods, utils,
+Depends: methods, RAutoGenRunTime
+SystemRequirements: libffi
+Maintainer: Duncan Temple Lang <duncan@wald.ucdavis.edu>
+Description: This package allows one to use libffi to 
+  invoke compiled routines that are dynamically loaded into R
+  but for which there are no explicitly compiled bindings.
+  This package is both an interface to  functionality
+  in the libffi library, and also an additional layer
+  of  R classes and functionality for run-time
+  interaction with native/compiled code.
+  Byron Ellis did some work on this several years ago.
+License: BSD
+Note: This is an experiment. It relates to RGCCTranslationUnit
+  and that is probably a better way to generate interfaces to
+  arbitrary code as the resulting bindings will be better type
+  checked and faster to implement. This is for dynamic invocation.
+  The two packages can be used together at run-time to discover 
+  routines and invoke them.
+
+
+
+
+

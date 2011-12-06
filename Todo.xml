@@ -1,0 +1,101 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+<?xml-stylesheet type="text/xsl" href="../../OmegahatXSL/XSL/OmegahatXSL/Todo.xsl" ?>
+
+<topics xmlns:r="http://www.r-project.org" xmlns:c="http://www.c.org">
+
+<topic>
+<title>Rffi</title>
+<items>
+
+<item>
+Allow the caller to specify converters.
+</item>
+
+<item>
+alloc method for each new reference class.
+</item>
+
+<item>
+Nested structs.
+</item>
+
+<item status="check">
+arrays of chars mapping to string arrays.
+</item>
+
+<item>
+Conversion of character to char **.
+</item>
+
+<item>
+Handling NAs
+</item>
+
+<item>
+Allocate a struct.
+Need sizeof
+</item>
+
+<item status="done">
+Put the external pointers into S4 class slots.
+</item>
+
+
+<item status="done">
+Differentiate between a struct and the other types at the R level
+so we can dispatch on them.
+</item>
+
+<item status="done">
+Put the names on structure elements when we have them in the 
+structType declaration.
+</item>
+
+<item>
+Build a RGGCTranslationUnit interface.
+See code in inst/TU/ and tu.R as an example.
+</item>
+
+<item>
+Identify const inputs which are not mutable and
+include this in the mutable parameters of a CIF.
+Available in RGCCTranslationUnit.
+
+See doStructP or constants in test.c.
+The const is on the fully resolved type.
+See inst/TU/const.R 
+
+
+<r:code>
+library(RGCCTranslationUnit)
+tu = parseTU("test.c.001t.tu")
+r = getRoutines(tu, "test")
+k = resolveType(r$constants, tu)
+source("const.R")
+const = constParams(k)
+
+library(Rffi)
+cif = CIF(pointerType, list(pointerType, pointerType, pointerType), !const)
+
+callCIF(cif, "constants", 1L, 4.0, getNativeSymbolInfo("globalStruct")$address)
+
+</r:code>
+
+</item>
+
+<item>
+Handle arrays from TU interface.
+Unions
+Function pointers.
+R Functions as routine pointers - Compile code using llvm to allow calls
+back to R functions.
+</item>
+
+<item status="done">
+Allow the caller to pass the mutability of parameters in the creation of the CIF.
+</item>
+
+
+</items>
+</topic>
+</topics>

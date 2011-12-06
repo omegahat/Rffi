@@ -1,0 +1,36 @@
+To install this package on Windows, you need to have built libffi.
+I have done this with libffi-3.0.9.
+
+Download the libffi distribution.
+I ran the following steps within a bash shell in a cygwin terminal.
+Run the configuration script
+     bash configure
+
+Change directory to the include directory.
+  rm ffitarget.h
+  cp ../src/x86/ffitarget.h
+
+This removes the symbolic link which confuses the DOS shell and MingW compiler.
+
+Change directory back to the parent, i.e. the libffi main directory.
+  cd ..
+
+Run the make command
+
+  make
+
+
+That can be built once, i.e. it does not need to be recompiled for each installation of the Rffi package.
+
+To install the package, you have to tell the configuration script 
+where the libffi build is located. Specify this via the environment
+variable
+   FFI_DIR
+
+Use the Win32 path specification, i.e. C:/Users/duncan/libff-3.0.9
+
+Next, run 
+
+   R CMD INSTALL Rffi
+
+

@@ -1,0 +1,14 @@
+
+This may not be that useful as we can compile interfaces to native
+code ahead of time.  But if we do want to create dynamic, run-time
+calls to arbitrary native routines, this is the way to do it.
+
+Issues with copying when we don't want a copy.
+  Sorted out to some extent.
+
+
+To Do
+
+  handle different native types
+  conversion for more types
+  documentation.

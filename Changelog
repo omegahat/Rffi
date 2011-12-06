@@ -1,0 +1,24 @@
+Version 0.2-0
+
+	*  added many run-time features and methods: alloc(), free(),
+	   addFinalizer(), 
+
+	*  support for reading C code via RGCCTranslationUnit and
+	   generating R classes and functions to interface to the
+	   routines and data structures using Rffi. This will be moved
+	   to a separate package in the future.
+	
+	
+
+Version 0.1-2
+
+	*  Compute the FFI_DEFAULT_ABI dynamically when package is
+   	   loaded so correct on different platforms.
+
+Version 0.1-1
+
+	*   Added the libffi source to the package so that people
+	don't need to install libffi before installing this package.
+	This uses static linking so we don't have to install the
+	resulting libffi.so/dylib.
+

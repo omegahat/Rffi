@@ -1,0 +1,71 @@
+#import(RSimpleCRuntime)
+import(RAutoGenRunTime)
+import(methods)
+import(utils)
+
+
+useDynLib(Rffi)
+
+exportClass("CIF")
+
+exportMethods("[", "[[")
+
+export(CIF, prepCIF, getTypes, callCIF)
+export(structType, arrayType, stringArrayType)
+
+exportClasses(FFIType, ScalarFFIType, StructFFIType)
+exportClasses(FixedLengthStringFFIType)
+
+export(voidType, uint8Type, sint8Type, uint16Type, sint16Type, uint32Type, sint32Type,
+       uint64Type, sint64Type, floatType, doubleType, longdoubleType, pointerType, stringType, sexpType)
+
+
+# Don't we get these from RAutoGenRunTime ?
+if(FALSE) {
+exportClass(RNativeReference, RCReference, RCStructReference)
+exportClasses(SymbolicConstant, EnumValue, BitwiseValue, EnumDef)
+exportClass(EnumerationValue)
+exportMethods("show", "[")
+export(bitlist, asEnumValue, GenericEnumValue, EnumDef, BitwiseValue)
+export(isNilPointer)   
+ }
+
+#importFrom("methods", "coerce")
+#exportMethods(coerce)
+
+
+export(structInfo)
+export(sizeof)
+export(makeClosure)
+export(addrOf)
+exportMethods(addrOf)
+
+export(makeClosure)
+
+export(getStructValue, getStructField)
+exportMethods(getStructField)
+export(getNativeValue)
+
+
+export(alloc, allocPointer)
+exportMethods(alloc)
+export(free)
+export(addFinalizer)
+exportMethods(addFinalizer)
+
+
+export(setSlots)
+
+ #GCC TU related functions
+if(FALSE)
+export(createRFunc,
+       defStructClass,
+       define,
+       genCode,
+       genTUInterface)
+
+
+export(pointer, typedPointer)
+
+
+

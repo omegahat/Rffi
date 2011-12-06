@@ -1,0 +1,18 @@
+#!/bin/sh
+
+if test -z "${FFI_DIR}" ; then
+  USE_LOCAL_FFI=1
+  (cd libffi-3.0.9 ; configure ; make)
+  FFI_DIR=../libffi-3.0.9
+fi
+
+# echo "target install directory: ${R_PACKAGE_DIR}  ${R_ARCH}"
+
+(cd "${R_PACKAGE_DIR}" ; mkdir libs; mkdir libs/${R_ARCH})
+
+# echo "`ls -asl ${R_PACKAGE_DIR}`"
+
+(cd src ; cp ${FFI_DIR}/.libs/cygffi-5.dll "${R_PACKAGE_DIR}/libs/${R_ARCH}" ;
+   echo "FFI_DIR=$FFI_DIR" > MVars)
+
+echo "Copied cygffi-5.dll into ${R_PACKAGE_DIR}/libs/${R_ARCH}"

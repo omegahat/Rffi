@@ -1,0 +1,4 @@
+PKG_CPPFLAGS=-I/usr/local/lib/libffi-3.0.9/include  
+PKG_LIBS=-L/usr/local/lib -lffi  
+
+
