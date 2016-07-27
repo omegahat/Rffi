@@ -71,6 +71,7 @@ free = makeClosure(
 
 
 
+if(TRUE)
 setGeneric("addFinalizer",
            function(x, finalizer = "free")
             standardGeneric("addFinalizer"))

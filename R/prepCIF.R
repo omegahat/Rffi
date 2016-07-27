@@ -51,21 +51,21 @@ function(cif, sym, ..., returnInputs = is(cif, "CIFWithMutableInputs") || any(ci
           .args = list(...))
 {
   if(is.character(sym))
-    sym = getNativeSymbolInfo(sym)
+     sym = getNativeSymbolInfo(sym)
 
   if(is(sym, "NativeSymbolInfo"))
-    sym = sym$address
+     sym = sym$address
 
   if(is.null(sym))
      stop("NULL value for routine to invoke")
   
   val = .Call("R_ffi_call", cif@ref, .args, sym)
   if(length(cif@pointerParameters) > 0 && (is(returnInputs, "numeric") || any(returnInputs))) {
-       list(value = val,
-            inputs = .args[if(is(returnInputs, "numeric") || length(returnInputs) > 1)
-                              returnInputs
-                           else
-                              cif@pointerParameters])
+     list(value = val,
+          inputs = .args[if(is(returnInputs, "numeric") || length(returnInputs) > 1)
+                            returnInputs
+                         else
+                            cif@pointerParameters])
   } else
      val
 }

@@ -331,7 +331,7 @@ Copyright (C) 2006 Free Software Foundation, Inc.
 This config.status script is free software; the Free Software Foundation
 gives unlimited permission to copy, distribute and modify it."
 
-ac_pwd='/Users/duncan/Projects/org/omegahat/R/Rffi'
+ac_pwd='/Users/duncan/GitWorkingArea/Rffi'
 srcdir='.'
 # If no file are specified by the user, then we need to provide default
 # value.  By we need to know if files were specified by the user.
@@ -495,16 +495,16 @@ s,@libdir@,|#_!!_#|${exec_prefix}/lib,g
 s,@localedir@,|#_!!_#|${datarootdir}/locale,g
 s,@mandir@,|#_!!_#|${datarootdir}/man,g
 s,@DEFS@,|#_!!_#|-DPACKAGE_NAME=\\"\\" -DPACKAGE_TARNAME=\\"\\" -DPACKAGE_VERSION=\\"\\" -DPACKAGE_STRING=\\"\\" -DPACKAGE_BUGREPORT=\\"\\",g
-s,@ECHO_C@,|#_!!_#|,g
-s,@ECHO_N@,|#_!!_#|-n,g
+s,@ECHO_C@,|#_!!_#|\\c,g
+s,@ECHO_N@,|#_!!_#|,g
 s,@ECHO_T@,|#_!!_#|,g
 s,@LIBS@,|#_!!_#|,g
 s,@build_alias@,|#_!!_#|,g
 s,@host_alias@,|#_!!_#|,g
 s,@target_alias@,|#_!!_#|,g
 s,@PKG_CONFIG@,|#_!!_#|/usr/local/bin/pkg-config,g
-s,@PKG_CPPFLAGS@,|#_!!_#|-I/usr/local/lib/libffi-3.0.9/include  ,g
-s,@PKG_LIBS@,|#_!!_#|-L/usr/local/lib -lffi  ,g
+s,@PKG_CPPFLAGS@,|#_!!_#|-I/usr/local/lib/libffi-3.2.1/include ,g
+s,@PKG_LIBS@,|#_!!_#|-L/usr/local/lib -lffi ,g
 s,@LIBOBJS@,|#_!!_#|,g
 s,@LTLIBOBJS@,|#_!!_#|,g
 :end

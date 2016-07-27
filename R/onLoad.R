@@ -7,7 +7,8 @@ function(...)
           paste(names(types), "Type", sep = ""),
           types, 
           MoreArgs = list(ns = e))
-   assignInNamespace("FFI_DEFAULT_ABI", .Call("R_getDefaultABI"), ns = e)
+#   assignInNamespace("FFI_DEFAULT_ABI", .Call("R_getDefaultABI"), ns = e)
+   FFI_DEFAULT_ABI <<- .Call("R_getDefaultABI")   
 }
 
 voidType = 1
