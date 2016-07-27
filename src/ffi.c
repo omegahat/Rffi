@@ -135,10 +135,10 @@ R_ffi_prep_cif(SEXP r_abi, SEXP r_retType, SEXP r_argTypes, SEXP r_obj)
 
 
 SEXP
-R_ffi_call(SEXP r_cif, SEXP r_args, SEXP r_sym)
+R_ffi_call(SEXP r_cif, SEXP r_args, SEXP r_sym, SEXP r_sexpType)
 {
     void *sym = R_ExternalPtrAddr(r_sym);
-    void **retVal;
+    void **retVal = NULL;
 
     void **args = NULL;
     unsigned int nargs, i;
@@ -182,7 +182,7 @@ R_ffi_call(SEXP r_cif, SEXP r_args, SEXP r_sym)
 
     isVoid = (cif->rtype == &ffi_type_void || cif->rtype->type == ffi_type_void.type);
 
-    if(!isVoid)
+    if(!isVoid) 
 	retVal = (void **) R_alloc(sizeof(void *), cif->rtype->size);
 
     ffi_call(cif, sym, retVal, args);
@@ -193,8 +193,13 @@ R_ffi_call(SEXP r_cif, SEXP r_args, SEXP r_sym)
     }
 */
 
-    if(!isVoid)
+    if(!isVoid) {
+	if(cif->rtype == R_ExternalPtrAddr(r_sexpType)) 
+           return(*((SEXP *) retVal));
+
+
 	r_ans = convertFromNative(retVal, cif->rtype);
+    }
 
     return(r_ans);
 }

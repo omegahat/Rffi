@@ -59,7 +59,7 @@ function(cif, sym, ..., returnInputs = is(cif, "CIFWithMutableInputs") || any(ci
   if(is.null(sym))
      stop("NULL value for routine to invoke")
   
-  val = .Call("R_ffi_call", cif@ref, .args, sym)
+  val = .Call("R_ffi_call", cif@ref, .args, sym, sexpType@ref)
   if(length(cif@pointerParameters) > 0 && (is(returnInputs, "numeric") || any(returnInputs))) {
      list(value = val,
           inputs = .args[if(is(returnInputs, "numeric") || length(returnInputs) > 1)
