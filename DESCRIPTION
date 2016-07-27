@@ -1,5 +1,5 @@
 Package: Rffi
-Version: 0.3-0
+Version: 0.4-0
 Title: Interface to libffi to dynamically invoke arbitrary 
      compiled routines at run-time without compiled bindings
 Author: Duncan Temple Lang

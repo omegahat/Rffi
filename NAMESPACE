@@ -67,5 +67,4 @@ export(createRFunc,
 
 export(pointer, typedPointer)
 
-
-
+export(libffiVersion)

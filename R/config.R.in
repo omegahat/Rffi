@@ -5,8 +5,11 @@ configInfo =
       version = "@FFI_VERSION@")
 
 libffiVersion =
-function()    
+function(asIs = FALSE)    
 {
+    if(asIs)
+       return(configInfo["version"])
+    
     els = as.integer(strsplit(configInfo["version"], "\\.")[[1]])
     names(els) = c("major", "minor", "patch")[seq(along = els)]
     els
