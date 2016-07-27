@@ -23,8 +23,6 @@ Version 0.2-0
 	   generating R classes and functions to interface to the
 	   routines and data structures using Rffi. This will be moved
 	   to a separate package in the future.
-	
-	
 
 Version 0.1-2
 
