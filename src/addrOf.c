@@ -54,7 +54,7 @@ SEXP
 showIntPtr(SEXP r_ref)
 {
     int val =  (int) R_ExternalPtrAddr(r_ref);
-    fprintf(stderr, "%d\n", val);
+    Rprintf("%d\n", val);
     return(ScalarInteger(val));
 }
 
