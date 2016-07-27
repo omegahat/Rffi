@@ -1,3 +1,19 @@
+Version 0.4-0
+
+	*  libffiVersion()
+
+	*  --enable-local in configure arguments
+
+	*  pointer(), typedPointer() functions and PointerType and TypedPointer classes.
+
+	*  Better way to assign FFI_DEFAULT_ABI at load time.
+
+	* R CMD check improvements.
+
+Version 0.3-0
+
+	* ?
+
 Version 0.2-0
 
 	*  added many run-time features and methods: alloc(), free(),
