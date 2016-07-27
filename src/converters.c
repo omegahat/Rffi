@@ -134,7 +134,7 @@ convertToNative(void **val, SEXP r_val, ffi_type *type) /* need something about 
 	}
     }
 
-    /* fprintf(stderr, "convert->native: %p\n", ans); */
+    /* Rprintf("convert->native: %p\n", ans); */
     return(ans);
 }
 
@@ -213,7 +213,7 @@ showStructType(SEXP r_type)
     ffi_type **p = t->elements;
     int i;
     for(i = 0; p && *p; p++, i++) {
-	fprintf(stderr, "%d) %d %d %d\n", i, (int) (*p)->alignment, (int) (*p)->size, (int) (*p)->type);
+	Rprintf("%d) %d %d %d\n", i, (int) (*p)->alignment, (int) (*p)->size, (int) (*p)->type);
     }
     return(R_NilValue);
 }
@@ -314,7 +314,7 @@ showOffsets(SEXP r_type)
   ffi_type *type = GET_FFI_TYPE_REF(r_type), **els;
   int offset = 0, i;
   for(i = 0, els = type->elements;  *els; i++, els++) {
-      fprintf(stderr, "%d) %d\n", i, offset);
+      Rprintf( "%d) %d\n", i, offset);
       if(els[1])
 	  offset = computeNextOffset(offset, els[0], els[1]);
   }
