@@ -44,7 +44,7 @@ R_verbose_free(SEXP rptr)
 {
     void *ptr =  R_ExternalPtrAddr(rptr);
 
-    fprintf(stderr, "freeing %p\n", ptr);
+    Rprintf("freeing %p\n", ptr);
 
     if(ptr) {
 	free(ptr);
