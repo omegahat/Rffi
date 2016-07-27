@@ -146,6 +146,12 @@ R_ffi_call(SEXP r_cif, SEXP r_args, SEXP r_sym, SEXP r_sexpType)
     int isVoid;
 
     ffi_cif *cif;
+
+    if(!sym) {
+       PROBLEM "NULL value passed for routine to invoke"
+	 ERROR;
+    }
+
     cif = (ffi_cif *) R_ExternalPtrAddr(r_cif);
 
     if(!cif) {
