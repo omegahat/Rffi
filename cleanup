@@ -1,0 +1,5 @@
+#!/bin/sh
+(cd libffi-3.0.9 ; make distclean)
+
+(cd src ; rm Makevars ; rm *.o *.so)
+rm R/config.R
