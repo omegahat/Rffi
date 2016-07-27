@@ -383,3 +383,11 @@ fillInt(int *x)
 {
     *x = 101;
 }
+
+
+/* Test we can return a SEXP as a SEXP */
+SEXP
+R_identity(SEXP x)
+{
+    return(x);
+}
