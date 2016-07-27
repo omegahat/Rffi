@@ -29,7 +29,9 @@ makeClosure(fun, ..., .els = list(...), env = new.env())
 \author{Duncan Temple Lang}
 
 \seealso{
-  \code{\link[RGCCTUFFI]{createRFunc}}
+ The package \code{RGCCTUFFI}
+ (\url{https://github.com/omegahat/RGCCTUFFI}) has a related
+ \code{createRFunc} function.
 }
 \examples{
   f = function(x, y)

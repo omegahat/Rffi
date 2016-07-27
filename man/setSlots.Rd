@@ -26,7 +26,9 @@ Duncan Temple Lang
 }
 
 \seealso{
- \code{\link[RGCCTUFFI]{defStructClass}}
+ The package \code{RGCCTUFFI}
+ (\url{https://github.com/omegahat/RGCCTUFFI}) has a related
+ \code{defStructClass} function.  
 }
 \examples{
   setClass("foo", representation(a = "integer",
