@@ -1,5 +1,6 @@
-#include <stdio.h>
 #include <math.h>
+
+#include <R_ext/Print.h>
 
 double
 intCall(int x)
@@ -16,14 +17,14 @@ rdouble()
 double
 foo(int x, double y)
 {
-    fprintf(stderr, "In foo %d %lf\n", x, y);
+    Rprintf("In foo %d %lf\n", x, y);
     return(x + y);
 }
 
 double
 otherFoo(int x, double y)
 {
-    fprintf(stderr, "In otherFoo %d %lf\n", x, y);
+    Rprintf("In otherFoo %d %lf\n", x, y);
     return(x - y);
 }
 
@@ -31,14 +32,14 @@ otherFoo(int x, double y)
 void
 voidCall()
 {
-    fprintf(stderr, "in voidCall\n");
+    Rprintf("in voidCall\n");
 }
 
 double
 arrayCall(int *vals, int len)
 {
     int i;
-    fprintf(stderr, "in arrayCall %p\n", vals);
+    Rprintf("in arrayCall %p\n", vals);
     for(i = 0; i < len; i++)
 	vals[i] *= 2;
 
@@ -50,7 +51,7 @@ darrayCall(double * const vals, int len)
 {
     int i;
     double sum = 0;
-    fprintf(stderr, "in darrayCall %p\n", vals);
+    Rprintf("in darrayCall %p\n", vals);
     for(i = 0; i < len; i++)
 	sum += vals[i];
 
@@ -75,7 +76,7 @@ retPointer(double *x, unsigned int len)
 }
 
 
-
+/*R:  k = CIF(it, list(it, uint32Type)) */
 int *
 retIPointer(int *x, unsigned int len)
 {
@@ -158,7 +159,7 @@ typedef struct {
 void
 doStruct(MyStruct s)
 {
-    fprintf(stderr, "doStruct: s = %d, i = %d, d = %lf, string = %s\n", (int) s.s, s.i, s.d, s.string);
+    Rprintf("doStruct: s = %d, i = %d, d = %lf, string = %s\n", (int) s.s, s.i, s.d, s.string);
 }
 
 
@@ -219,15 +220,15 @@ showStruct()
 {
     MyStruct m;
     int d;
-    fprintf(stderr, "sizeof(MyStruct) %d\n", (int) sizeof(MyStruct));
+    Rprintf("sizeof(MyStruct) %d\n", (int) sizeof(MyStruct));
     d = offsetof(MyStruct, s);
-    fprintf(stderr, "s %d, %d\n", (int) d, (int) sizeof(m.s));
+    Rprintf("s %d, %d\n", (int) d, (int) sizeof(m.s));
     d = offsetof(MyStruct, i);
-    fprintf(stderr, "i %d, %d\n", (int) d, (int) sizeof(m.i));
+    Rprintf("i %d, %d\n", (int) d, (int) sizeof(m.i));
     d = offsetof(MyStruct, d);
-    fprintf(stderr, "d %d, %d\n", (int) d, (int) sizeof(m.d));
+    Rprintf("d %d, %d\n", (int) d, (int) sizeof(m.d));
     d = offsetof(MyStruct, string);
-    fprintf(stderr, "string %d, %d\n", (int) d, (int) sizeof(m.string));
+    Rprintf( "string %d, %d\n", (int) d, (int) sizeof(m.string));
 }
 
 
@@ -243,17 +244,18 @@ showArrStruct()
 {
     MyArrStruct m;
     int d;
-    fprintf(stderr, "sizeof(MyStruct) %d\n", (int) sizeof(MyStruct));
+    Rprintf( "sizeof(MyStruct) %d\n", (int) sizeof(MyStruct));
     d = offsetof(MyArrStruct, s);
-    fprintf(stderr, "s %d, %d\n", (int) d, (int) sizeof(m.s));
+    Rprintf( "s %d, %d\n", (int) d, (int) sizeof(m.s));
     d = offsetof(MyArrStruct, i);
-    fprintf(stderr, "i %d, %d\n", (int) d, (int) sizeof(m.i));
+    Rprintf( "i %d, %d\n", (int) d, (int) sizeof(m.i));
     d = offsetof(MyArrStruct, ia);
-    fprintf(stderr, "ia %d, %d\n", (int) d, (int) sizeof(m.ia));
+    Rprintf( "ia %d, %d\n", (int) d, (int) sizeof(m.ia));
     d = offsetof(MyArrStruct, d);
-    fprintf(stderr, "d %d, %d\n", (int) d, (int) sizeof(m.d));
+    Rprintf( "d %d, %d\n", (int) d, (int) sizeof(m.d));
 }
 
+#ifdef USE_RANDOM_IN_TESTS
 const long MaxRand = 2147483647;
 
 #ifdef WIN32
@@ -268,13 +270,16 @@ myFun(double val, void *ptr)
 {
     return(val + ((double)random()/(double) MaxRand));
 }
+#endif
+
+
 
 double
 runFunPtr(int n, double val, double (*fun)(double value, void *userData), void *data)
 {
     int i;
     for(i = 0; i < n; i++) {
-	fprintf(stderr, "%d) %lf\n", i, val);
+	Rprintf( "%d) %lf\n", i, val);
         val = fun(val, data);
     }
     return(val);
@@ -312,8 +317,8 @@ void
 R_union()
 {
 
-    TypeU t;
-    fprintf(stderr, "i = %d, d = %d, u = %d, f = %d, ptr = %d, ii = %d\n",
+//    TypeU t;
+    Rprintf( "i = %d, d = %d, u = %d, f = %d, ptr = %d, ii = %d\n",
 	    (int) offsetof(TypeU, i),
 	    (int) offsetof(TypeU, d),
 	    (int) offsetof(TypeU, u),
@@ -331,7 +336,7 @@ call_varargs(const char *str, int nargs, ...)
     va_list va;
     va_start(va, nargs);
 
-    fprintf(stderr, "%s\n", str);
+    Rprintf( "%s\n", str);
     for(i = 0; i < nargs; i++) 
 	sum += va_arg(va, int);
 
@@ -343,20 +348,20 @@ call_varargs(const char *str, int nargs, ...)
 void
 call_varargs_null(const char *filename, ...)
 {
-    int i;
+//    int i;
     va_list va;
     char *ptr;
     va_start(va, filename);
 
-    fprintf(stderr, "%s ", filename);
+    Rprintf( "%s ", filename);
     while(1) {
        ptr = va_arg(va, char *);
        if(ptr)
-	   fprintf(stderr, " %s", ptr);
+	   Rprintf(" %s", ptr);
        else
 	   break;
     }
-    fprintf(stderr, "\n");
+    Rprintf( "\n");
 	       
     va_end(va);
 }
@@ -378,5 +383,3 @@ fillInt(int *x)
 {
     *x = 101;
 }
-
-
