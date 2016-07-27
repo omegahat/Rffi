@@ -1,0 +1,15 @@
+
+configInfo =
+    c(cpp = "@PKG_CPPFLAGS@",
+      libs = "@PKG_LIBS@",
+      version = "@FFI_VERSION@")
+
+libffiVersion =
+function()    
+{
+    els = as.integer(strsplit(configInfo["version"], "\\.")[[1]])
+    names(els) = c("major", "minor", "patch")[seq(along = els)]
+    els
+}
+
+
