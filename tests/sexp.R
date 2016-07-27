@@ -1,9 +1,18 @@
 library(Rffi)
 cif = CIF(sexpType, sexpType)
 
-callCIF(cif, "R_identity",  1:3)
-callCIF(cif, "R_identity",  as.numeric(1:13))
-callCIF(cif, "R_identity",  LETTERS)
+f =
+function(x)
+{
+    y = callCIF(cif, "R_identity",  x)
+    stopifnot(identical(x, y))
+    y
+}
 
-callCIF(cif, "R_identity",  list(a = 1:3, b = as.numeric(1:10), c = LETTERS))
+
+f(1:3)
+f(as.numeric(1:13))
+f(LETTERS)
+f(list(a = 1:3, b = as.numeric(1:10), c = LETTERS))
+
 
