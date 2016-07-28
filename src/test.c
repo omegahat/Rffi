@@ -293,6 +293,7 @@ R_myFun(double val, void *data)
     SETCAR(call, (SEXP) data);
     SETCAR(CDR(call), ScalarReal(val));
 
+
     ans = Rf_eval(call, R_GlobalEnv);
 
     UNPROTECT(1);
@@ -389,5 +390,13 @@ fillInt(int *x)
 SEXP
 R_identity(SEXP x)
 {
+    return(x);
+}
+
+
+void *
+R_ptr(void *x)
+{
+    Rprintf("pointer: %p\n", x);
     return(x);
 }
