@@ -32,6 +32,11 @@ convertToNative(void **val, SEXP r_val, ffi_type *type) /* need something about 
 {
     void *ans = NULL;
 
+    if(type == &ffi_type_pointer && TYPEOF(r_val) == S4SXP) { // need to check inherits from RC++Reference.
+	SEXP tmp = GET_SLOT(r_val, Rf_install("ref"));
+	if(Rf_length(tmp))
+	    r_val = tmp;
+    }
 
 
     if(type == &ffi_type_sexp) {
@@ -150,8 +155,12 @@ convertFromNative(void *val, ffi_type *type)
 	ans = ScalarInteger( * (int *) val);
     else if(type == &ffi_type_uint32 || type->type == ffi_type_uint32.type)
 	ans = ScalarReal( * (unsigned int *) val);
+    else if(type == &ffi_type_sint8 || type->type == ffi_type_sint8.type)
+	ans = ScalarInteger( * (char *) val);
     else if(type == &ffi_type_sint16 || type->type == ffi_type_sint16.type)
 	ans = ScalarInteger( * (short *) val);
+    else if(type == &ffi_type_sint64 || type->type == ffi_type_sint64.type)
+	ans = ScalarReal( * (long *) val);
     else if(type == &ffi_type_uint16 || type->type == ffi_type_uint16.type)
 	ans = ScalarInteger( * (unsigned short *) val);
     else if(type == &ffi_type_uint64 || type->type == ffi_type_uint64.type)
