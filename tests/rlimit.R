@@ -13,6 +13,10 @@ cif = CIF(sint32Type, list(sint32Type, pointerType))
  # Create an instance of the rlimit structure as a pointer
 ptr = alloc(rlimitType)
 
+ans = callCIF(cif, "getrlimit", 0L, ptr, returnInputs = FALSE)
+
+ptr$cur
+
  # These are the resource numbers on OS X.
 resources = c(CPU = 0L, FSIZE = 1L, DATA = 2L, STACK = 3L,
               CORE = 4L, ADDR_SPACE = 5L, RSS = 5L,
@@ -22,7 +26,7 @@ resources = c(CPU = 0L, FSIZE = 1L, DATA = 2L, STACK = 3L,
   # Get all the resources
 Infty = 2^63 - 1
 
-sapply(resources,
+o = sapply(resources,
         function(r) {
             ans = callCIF(cif, "getrlimit", r, ptr, returnInputs = FALSE)
             tmp = c(getStructField(ptr, "cur", rlimitType),
