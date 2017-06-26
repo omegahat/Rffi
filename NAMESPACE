@@ -68,3 +68,10 @@ export(createRFunc,
 export(pointer, typedPointer)
 
 export(libffiVersion)
+
+
+exportMethods("$")
+importMethodsFrom(RAutoGenRunTime, "$")
+#exportClass("RStructReference")
+#export("$")
+
