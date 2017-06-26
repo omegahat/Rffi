@@ -3,7 +3,8 @@
          xmlns:xi="http://www.w3.org/2003/XInclude"
  	 xmlns:omg="http://www.omegahat.org"
 	 xmlns:c="http://www.C.org"
-	 xmlns:sh="http://www.shell.org">
+	 xmlns:sh="http://www.shell.org"
+	 xmlns:ltx="http://www.latex.org">
 
 <articleinfo>
 
@@ -209,7 +210,7 @@ available as R variables in the <omg:pkg>Rffi</omg:pkg>
 package.
 
 These are  described in table <xref/>
-<table>
+<table ltx:format="lp{4in}">
 <title>Standard data type identifiers</title>
 <tgroup cols='2'>
 <thead>
@@ -644,7 +645,7 @@ R interfaces to them.
 
 
 <section>
-<title>Varargs</title>
+<title>A Variable Number of Arguments</title>
 
 <para>
  libffi does not provide support for routines
@@ -656,7 +657,7 @@ on the standard output, i.e. the console by default.
 Of course, we can this with R using 
 <r:func>sprintf</r:func> and <r:func>cat</r:func>.
 However, the goal here is merely to provide an example
-signatures for individual calls.</check>
+signatures for individual calls.<check/>
 </para>
 </section>
 
