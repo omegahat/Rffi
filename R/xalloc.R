@@ -10,8 +10,11 @@ setMethod("alloc", "FFIType",
                alloc(sizeof(nbytes), finalizer, ...))
 
 setMethod("alloc", "StructFFIType",
-           function(nbytes, finalizer =  getNativeSymbolInfo("R_free")$address, ...)
-               alloc(structInfo(nbytes)$size, finalizer, ...))
+           function(nbytes, finalizer =  getNativeSymbolInfo("R_free")$address, ...) {
+               ans = alloc(structInfo(nbytes)$size, finalizer, ...)
+               attr(ans, "FFIType") = nbytes
+               new("FFIRCStructReference", ref = ans)
+             })
 
 setMethod("alloc", "numeric",
            function(nbytes, finalizer = getNativeSymbolInfo("R_free")$address, ...) {
@@ -24,6 +27,18 @@ setMethod("alloc", "numeric",
 
               ans
            })
+
+setClass("FFIRCStructReference", contains = "RCStructReference")
+
+setMethod("$", "FFIRCStructReference",
+          function(x, name) {
+             ty = attr(x@ref, "FFIType")
+             if(is.null(ty))
+                stop("We need the StructFFIType")
+
+             getStructField(x, name, ty)
+          })
+    
 
 #setGeneric("allocPointer", function()
 allocPointer =
