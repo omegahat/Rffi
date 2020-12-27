@@ -26,12 +26,12 @@ setClass("TypedPointer",
            representation(elType = "FFIType"), contains = "RNativeReference")
 
     # A class to specify a pointer to a particular type of element.
-setClass("PointerType", representation(elType = "FFIType"), contains = "PointerFFIType")# ,             prototype = list(ref = pointerType@ref))
+setClass("PointerTypeFFI", representation(elType = "FFIType"), contains = "PointerFFIType")# ,             prototype = list(ref = pointerType@ref))
 
 pointer =
 function(type)  
 {
-  new("PointerType", elType = type)
+  new("PointerTypeFFI", elType = type)
 }
 
 
