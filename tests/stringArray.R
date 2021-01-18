@@ -14,7 +14,7 @@ utsnameType =
 
 p = alloc(utsnameType, "R_verbose_free")
 callCIF(cif, "uname", p)
-u = new("RCReference", ref = p)
+u = new("RCReference", ref = p@ref)
 
 print(getStructField(u, 2L, utsnameType))
 
