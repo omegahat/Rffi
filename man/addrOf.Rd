@@ -14,6 +14,9 @@
   In other words, this is similar to when we
   pass an argument to a C routine by taking
   its address as \code{foo(&obj)}.
+
+  The native routine \code{R_address_of} returns the address of
+  the externalptr value, so is the address of the pointer.
 }
 \usage{
 addrOf(x, ...) 
@@ -49,10 +52,16 @@ Duncan Temple Lang
    # Allocate the MyStruct instance.
   ptr = alloc(myStruct.type)
    # Call the setStructP routine, but pass the address of ptr
-  ans = callCIF(cif, "setStructP", addrOf(ptr))
+  ans = callCIF(cif, "setStructP", ptr@ref) # addrOf(ptr))
 
    # Now get the contents of ptr.
-  getStructValue(ptr, myStruct.type)
+   getStructValue(ptr, myStruct.type)
+
+   ptr = alloc(myStruct.type)
+   getStructValue(ptr, myStruct.type)
+   # XX Fix this "naked" call to R_address_of.
+   ans = callCIF(cif, "setStructPAddr", .Call("R_address_of", ptr@ref)) 
+   getStructValue(ptr, myStruct.type)
 }
 \keyword{programming}
 \keyword{interface}

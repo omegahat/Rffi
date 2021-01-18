@@ -15,16 +15,18 @@
   We use it in this package to free memory allocated for native objects.
 }
 \usage{
-addFinalizer(x, finalizer = "free")
+addFinalizer(obj, finalizer, default = character(),...)
 }
 \arguments{
-  \item{x}{the external pointer for which to register the finalizer}
+  \item{obj}{the external pointer for which to register the finalizer}
   \item{finalizer}{the finalizer routine. This can be
     a string giving the name of the routine to be dynamically resolved
     by searching all DSOs/DLLs, or a \code{NativeSymbolInfo}
     or \code{NativeSymbol} object which are already resolved references
     to a native routine.
   }
+  \item{default}{from RAutoGenRunTime package}
+  \item{\dots}{additional arguments for methods}
 }
 
 \value{

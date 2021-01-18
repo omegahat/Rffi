@@ -2,6 +2,11 @@
 \alias{structType}
 \alias{arrayType}
 \alias{stringArrayType}
+\alias{[,RCStructReference,ANY,ANY-method}
+\alias{[,RCStructReference,missing,ANY-method}
+\alias{[[,RCStructReference,character,ANY-method}
+%XXX
+\alias{$,FFIRCStructReference-method}
 \title{Create a type description for a C-level structure or array}
 \description{
  The \code{structType} function allows us to create new type definitions
