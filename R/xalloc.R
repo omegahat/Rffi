@@ -86,40 +86,40 @@ free = makeClosure(
 
 
 
-if(TRUE)
+if(!isGeneric("addFinalizer"))  # TRUE
 setGeneric("addFinalizer",
-           function(x, finalizer = "free")
+           function(x, finalizer = "free", ...)
             standardGeneric("addFinalizer"))
 
 
 setMethod("addFinalizer", c(finalizer = "logical"),
-           function(x, finalizer = "free")
+           function(obj, finalizer = "free", ...)
              if(finalizer)
-               addFinalizer(x, "free"))
+               addFinalizer(obj, "free"))
 
 setMethod("addFinalizer", c(finalizer = "character"),
-           function(x, finalizer = "free")
-               addFinalizer(x, getNativeSymbolInfo(finalizer)$address))
+           function(obj, finalizer = "free", ...)
+               addFinalizer(obj, getNativeSymbolInfo(finalizer)$address))
 
 setOldClass("NativeSymbolInfo")
 setMethod("addFinalizer", c(finalizer = "NativeSymbolInfo"),
-           function(x, finalizer = "free")
-               addFinalizer(x, finalizer$address))
+           function(obj, finalizer = "free", ...)
+               addFinalizer(obj, finalizer$address))
 
 setOldClass("NativeSymbol")
 setMethod("addFinalizer", c(finalizer = "NativeSymbol"),
-           function(x, finalizer = "free")
-               .Call("R_setCFinalizer", as(x, "externalptr"), finalizer))
+           function(obj, finalizer = "free", ...)
+               .Call("R_setCFinalizer", as(obj, "externalptr"), finalizer))
 
 
 
 setMethod("addFinalizer", c("externalptr", "externalptr"),
-           function(x, finalizer = "free") {
-               .Call("R_setCFinalizer", x, finalizer)
+           function(obj, finalizer = "free", ...) {
+               .Call("R_setCFinalizer", obj, finalizer)
            })
 
 setMethod("addFinalizer", c("RCReference"),
-           function(x, finalizer = "free") {
-              addFinalizer(x@ref, finalizer)
+           function(obj, finalizer = "free", ...) {
+              addFinalizer(obj@ref, finalizer)
            })
                
