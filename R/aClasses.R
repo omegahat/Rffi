@@ -48,7 +48,7 @@ setAs("FFIType", "externalptr",
        function(from)
         from@ref)
 
-UseSimpleCRunTime = TRUE
+UseSimpleCRunTime = FALSE  # WAS TRUE XXXX
 
 if(!UseSimpleCRunTime) {
 setAs("RCReference", "externalptr",
