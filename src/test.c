@@ -201,7 +201,19 @@ getStructP()
 }
 
 void
-setStructP(MyStruct **input)
+setStructP(MyStruct *input)
+{
+    MyStruct *c = input;
+//    c = *input;
+    c->s = -1;
+    c->i =  11;
+    c->d = 99.2;
+    c->string = MyString;
+}
+
+
+void
+setStructPAddr(MyStruct **input)
 {
     MyStruct *c;
     c = *input;
