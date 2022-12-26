@@ -3,19 +3,34 @@
 #define USE_RINTERNALS 1
 #include <Rinternals.h>
 
+#include "converters.h"
+
 
 void *
 getAddressOfExtPtr(SEXP val)
 {
-    return( & EXTPTR_PTR(val) );
+#if 0
+    return( & R_ExternalPtrAddr(val) ) ; // EXTPTR_PTR(val) );
+#else
+    PROBLEM "disabled getAddressOfExtPtr.  Contact package author with example"
+	ERROR;
+    return(R_NilValue);
+#endif    
 }
 
 SEXP
 R_address_of(SEXP r_ref)
 {
     void **ptr = (void **) malloc(sizeof(void *));
-    *ptr = & EXTPTR_PTR(r_ref); // R_ExternalPtrAddr(r_ref);
+    *ptr = R_ExternalPtrAddr(r_ref); // & EXTPTR_PTR(r_ref);
+#if 0    
     return(R_MakeExternalPtr(& EXTPTR_PTR(r_ref), Rf_install("pointer_address"), R_NilValue));
+//    return(R_MakeExternalPtr(ptr/*& EXTPTR_PTR(r_ref)*/, Rf_install("pointer_address"), R_NilValue));
+#else
+    PROBLEM "disabled getAddressOfExtPtr.  Contact package author with example"
+	ERROR;    
+    return(R_NilValue);
+#endif        
 }
 
 
@@ -39,7 +54,7 @@ itestAddrOf(int *i)
 void
 dtestAddrOf(int *d)
 {
-    *d = 3.14159;
+    *d = (int) 3.14159;
 }
 
 void
@@ -53,7 +68,7 @@ fillIArray(int *d, int len)
 SEXP
 showIntPtr(SEXP r_ref)
 {
-    int val =  (int) R_ExternalPtrAddr(r_ref);
+    int val = (int) R_ExternalPtrAddr(r_ref);
     Rprintf("%d\n", val);
     return(ScalarInteger(val));
 }

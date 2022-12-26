@@ -200,8 +200,13 @@ R_ffi_call(SEXP r_cif, SEXP r_args, SEXP r_sym, SEXP r_sexpType)
 */
 
     if(!isVoid) {
-	if(cif->rtype == R_ExternalPtrAddr(r_sexpType)) 
-           return(*((SEXP *) retVal));
+	if(cif->rtype == R_ExternalPtrAddr(r_sexpType)) {
+	    SEXP tmp = * ((SEXP *) retVal);
+	    Rf_protect(tmp);
+//	    Rf_PrintValue(tmp);
+	    Rf_unprotect_ptr(tmp);
+	    return( tmp );
+	}
 
 
 	r_ans = convertFromNative(retVal, cif->rtype);
