@@ -1,6 +1,10 @@
 #define USE_RINTERNALS
 #include "converters.h"
 
+#include <Rinternals.h>
+
+#include <stdlib.h> // for malloc()
+
 SEXP convertStructToR(void *val, ffi_type *type);
 void *convertRToStruct(SEXP r_val, ffi_type *type);
 
@@ -44,7 +48,7 @@ convertToNative(void **val, SEXP r_val, ffi_type *type) /* need something about 
 	*p = r_val;
 	ans = p;
     } else  if(type == &ffi_type_pointer) {
-	SEXPREC_ALIGN *p;
+	// SEXPREC_ALIGN *p;
         if(r_val == R_NilValue) 
 	    ans = NULL;
         else if(IS_S4_OBJECT(r_val) && R_is(r_val, "AddressOf")) {
@@ -59,17 +63,18 @@ convertToNative(void **val, SEXP r_val, ffi_type *type) /* need something about 
 	    case INTSXP:
 	    case LGLSXP:
 	    {
-		p = ((SEXPREC_ALIGN *) r_val) + 1;
-		ans = p;
+		ans = INTEGER(r_val);
+		// ans = STDVEC_DATAPTR(r_val); // ((SEXPREC_ALIGN *) r_val) + 1;
+		// ans = p;
 		/* ans = &r_val + sizeof(SEXPREC_ALIGN*); */ /* INTEGER(r_val); */
 	    }
 		break;
 	    case REALSXP:
-		p = ((SEXPREC_ALIGN *) r_val) + 1;
-		ans = p; /* REAL(r_val); */
+		ans = STDVEC_DATAPTR(r_val); //((SEXPREC_ALIGN *) r_val) + 1;
+		ans = REAL(r_val); 
 		break;
    	    case STRSXP:  /*XXX What should happen is not clear here. The char ** or the single */
-		ans = Rf_length(r_val) ? CHAR(STRING_ELT(r_val, 0)) : NULL;
+		ans = Rf_length(r_val) ? (void*) CHAR(STRING_ELT(r_val, 0)) : NULL;
 		break;
    	    case EXTPTRSXP:
 		ans = R_ExternalPtrAddr(r_val);
@@ -147,13 +152,19 @@ SEXP
 convertFromNative(void *val, ffi_type *type)
 {
     SEXP ans = R_NilValue;
-    if(type == &ffi_type_sexp)
+    if(type == &ffi_type_sexp) {
 	ans = (SEXP) val;
-    else if(type->type == FFI_TYPE_STRUCT) {
+// Testing - remove
+	Rf_protect(ans);
+	Rf_PrintValue(ans);
+	Rf_unprotect_ptr(ans);
+    } else if(type->type == FFI_TYPE_STRUCT) {
 	ans = convertStructToR(val, type);
     } else  if(type == &ffi_type_sint32 || type->type == ffi_type_sint32.type)
 	ans = ScalarInteger( * (int *) val);
     else if(type == &ffi_type_uint32 || type->type == ffi_type_uint32.type)
+
+
 	ans = ScalarReal( * (unsigned int *) val);
     else if(type == &ffi_type_sint8 || type->type == ffi_type_sint8.type)
 	ans = ScalarInteger( * (char *) val);
@@ -192,7 +203,6 @@ convertFromNative(void *val, ffi_type *type)
 SEXP
 R_convertFromNative(SEXP r_val, SEXP r_type)
 {
-
     void *val = R_ExternalPtrAddr(r_val);
     ffi_type *type = GET_FFI_TYPE_REF(r_type);
     return(convertFromNative(val, type));
